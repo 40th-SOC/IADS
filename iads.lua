@@ -184,6 +184,9 @@ do
                 end
             end
         end
+
+        log("Interceptor database:")
+        log(mist.utils.tableShow(interceptors))
     end
 
     local function findDetectedTargets()
@@ -300,11 +303,7 @@ do
         return sortedGroups
     end
 
-    local function isThreatMatch(candidateLevel, targetThreatLevel, skip)
-        if skip then
-            return true
-        end
-
+    local function isThreatMatch(candidateLevel, targetThreatLevel)
         if targetThreatLevel > THREAT_LEVELS.HIGH then
             -- Target is a 4-ship of advanced fighters, send any group
             return true
@@ -340,7 +339,7 @@ do
                 local sorted = sortByThreatLevel(availableInterceptors, threatLevel)
                 for i,interceptor in ipairs(sorted) do
                     if isThreatMatch(interceptor.level, threatLevel) then
-                        interceptGroup = interceptor.group
+                        interceptGroup = interceptor
                         -- Stop looping over interceptor groups
                         break
                     end
@@ -351,13 +350,11 @@ do
             end
         end
 
-        if interceptors == nil then
+        if not interceptGroup then
             -- No interceptors found, nothing to dispatch
             log("No valid interceptors found")
-            return
+            return false
         end
-
-        
 
         local group = interceptGroup.group
         local controller = group:getController()
@@ -377,7 +374,7 @@ do
 
         log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
 
-        return interceptGroup.airborne
+        return true
     end
 
     local function possiblyDisableSAM(groupName, index)
@@ -450,11 +447,13 @@ do
                     log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
                     
                     if redAirCount < internalConfig.MAX_INTERCEPTOR_GROUPS then
-                        launchInterceptors(target, threatLevel)
+                        local didLaunch = launchInterceptors(target, threatLevel)
                         -- Only increment if a group is taking off from an airbase
                         -- This should increment up to the MAX_RED_AIR_COUNT and no further.
-                        redAirCount = redAirCount + 1;
-                        log("Incremented Red air count to %s", redAirCount)
+                        if didLaunch then
+                            redAirCount = redAirCount + 1;
+                            log("Incremented Red air count to %s", redAirCount)
+                        end
                     else
                         log("Skipping launch; IADS at capacity")
                     end
