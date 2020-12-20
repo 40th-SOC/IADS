@@ -185,8 +185,8 @@ do
             end
         end
 
-        log("Interceptor database:")
-        log(mist.utils.tableShow(interceptors))
+        log("Airborne CAP groups found: %s", mist.utils.tableShow(inAirCAPGroups))
+        log("Parked interceptor groups found: %s", mist.utils.tableShow(interceptors))
     end
 
     local function findDetectedTargets()
@@ -452,7 +452,7 @@ do
                         -- This should increment up to the MAX_RED_AIR_COUNT and no further.
                         if didLaunch then
                             redAirCount = redAirCount + 1;
-                            log("Incremented Red air count to %s", redAirCount)
+                            log("Incremented red air count to %s", redAirCount)
                         end
                     else
                         log("Skipping launch; IADS at capacity")
