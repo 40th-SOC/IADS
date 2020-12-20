@@ -35,6 +35,7 @@ do
         },
         ["IGNORE_GROUPS"] = nil,
         ["RMAX_MODIFIER"] = 0.8,
+        ["IGNORE_SAM_GROUPS"] = nil,
     }
 
     local THREAT_LEVELS = {
@@ -86,7 +87,7 @@ do
         local txt = string.format("[IADS] " .. tmpl, ...)
 
         if __DEV_ENV == true then
-            trigger.action.outText(txt, 30) 
+            trigger.action.outText(txt, 30)
         end
 
         env.info(txt)
@@ -132,20 +133,34 @@ do
         log("%s radar for %s", params.enabled and 'Enabling' or 'Disabling', params.group:getName())
     end
 
-    local function buildSAMDatabase()
-        for i, group in pairs(coalition.getGroups(coalition.side.RED, Group.Category.GROUND)) do
-            for i, unit in pairs(group:getUnits()) do
-            
-                if internalConfig.VALID_SEARCH_RADARS[unit:getTypeName()] == true then
-                    table.insert(searchRadars, unit:getName())
-                end
+    local function isIgnoredGroup(groupName)
+        if internalConfig.IGNORE_SAM_GROUPS then
+            if internalConfig.IGNORE_SAM_GROUPS[groupName] ~= nil then
+                log("Ignoring SAM group %s", groupName)
+                return true
+            end
+        end
 
-                if internalConfig.TACTICAL_SAM_WHITELIST[unit:getTypeName()] == true  then
-                    if internalConfig.ENABLE_TACTICAL_SAMS then
-                        setRadarState({ group=unit:getGroup(), enabled=false })
+        return false
+    end
+
+    local function buildSAMDatabase()
+        local allGroups = coalition.getGroups(coalition.side.RED, Group.Category.GROUND)
+
+        for i, group in pairs(allGroups) do
+            if not isIgnoredGroup(group:getName()) then
+                for i, unit in pairs(group:getUnits()) do
+                    if internalConfig.VALID_SEARCH_RADARS[unit:getTypeName()] == true then
+                        table.insert(searchRadars, unit:getName())
                     end
-                    table.insert(tacticalSAMs, { unit=unit, state=SAM_STATES.INACTIVE, name=unit:getName() })
-                    break
+    
+                    if internalConfig.TACTICAL_SAM_WHITELIST[unit:getTypeName()] == true  then
+                        if internalConfig.ENABLE_TACTICAL_SAMS then
+                            setRadarState({ group=unit:getGroup(), enabled=false })
+                        end
+                        table.insert(tacticalSAMs, { unit=unit, state=SAM_STATES.INACTIVE, name=unit:getName() })
+                        break
+                    end
                 end
             end
         end
@@ -332,7 +347,7 @@ do
                 end
             else
                 -- Don't match threats, just send the closest group
-                interceptGroup = availableInterceptors[1].group
+                interceptGroup = availableInterceptors[1]
             end
         end
 
@@ -344,7 +359,8 @@ do
 
         
 
-        local controller = interceptGroup:getController()
+        local group = interceptGroup.group
+        local controller = group:getController()
         controller:setCommand({
             id="Start",
             params={}
@@ -359,7 +375,7 @@ do
 
         controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.WEAPON_FREE)
 
-        log("Tasking %s, Target: %s", interceptGroup:getName(), target:getGroup():getName())
+        log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
 
         return interceptGroup.airborne
     end
@@ -383,17 +399,21 @@ do
             local unit = Unit.getByName(data.name)
 
             if unit and data.state == SAM_STATES.INACTIVE then
-                local trackRadar = unit:getSensors()[1][1]
-                local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
-                local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
+                local sensors = unit:getSensors() and unit:getSensors()[1]
 
-                -- Wait until the target is closer. 
-                -- This ensures that SAMs are almost ready to fire when they turn on.
-                if dist < (rmax * internalConfig.RMAX_MODIFIER) then
-                    local group = unit:getGroup()
-                    setRadarState({ group=group, enabled=true })
-                    tacticalSAMs[i].state = SAM_STATES.ACTIVE
-                    tacticalSAMs[i].timer = mist.scheduleFunction(possiblyDisableSAM, { group:getName(), i }, timer.getTime() + 10, 10, nil)
+                if sensors then
+                    local trackRadar = sensors[1]
+                    local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
+                    local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
+    
+                    -- Wait until the target is closer. 
+                    -- This ensures that SAMs are almost ready to fire when they turn on.
+                    if dist < (rmax * internalConfig.RMAX_MODIFIER) then
+                        local group = unit:getGroup()
+                        setRadarState({ group=group, enabled=true })
+                        tacticalSAMs[i].state = SAM_STATES.ACTIVE
+                        tacticalSAMs[i].timer = mist.scheduleFunction(possiblyDisableSAM, { group:getName(), i }, timer.getTime() + 10, 10, nil)
+                    end
                 end
             end
         end
@@ -430,21 +450,27 @@ do
                     log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
                     
                     if redAirCount < internalConfig.MAX_INTERCEPTOR_GROUPS then
-                        -- TODO split this into two functions, one to get and the other to launch.
-                        -- Calling :hasTask in the same frame does not report any change.
-                        -- We need to track which groups have already been dispatched within this for loop.
-                        local groupWasAirborne = launchInterceptors(target, threatLevel)
+                        launchInterceptors(target, threatLevel)
                         -- Only increment if a group is taking off from an airbase
-                        if groupWasAirborne == false then
-                            -- This should increment up to the MAX_RED_AIR_COUNT and no further.
-                            redAirCount = redAirCount + 1;
-                        end
+                        -- This should increment up to the MAX_RED_AIR_COUNT and no further.
+                        redAirCount = redAirCount + 1;
+                        log("Incremented Red air count to %s", redAirCount)
                     else
                         log("Skipping launch; IADS at capacity")
                     end
                 end
             end
         end
+    end
+
+    local function isKnownInterceptor(groupName)
+        for i,name in ipairs(interceptors) do
+            if groupName == name then
+                return true
+            end
+        end
+
+        return false
     end
 
     -- This should correct the available "capacity" for redfor interceptors.
@@ -457,14 +483,14 @@ do
 
         log("Reconciling state...")
         for i,group in ipairs(coalition.getGroups(coalition.side.RED, Group.Category.AIRPLANE)) do
-            if group:isExist() then
+            if group:isExist() and isKnownInterceptor(group:getName()) then
                 local atLeastOneUnitAirborn = false
                 
                 for i,unit in ipairs(group:getUnits()) do
                     -- Don't count players. Counting players makes things too unpredictable.
                     -- Players can be on the ground, then two interceptors will spawn.
                     -- Then players take off and a total of n + 1 groups are airborne.
-                    if unit:getPlayerName() == nil and unit:inAir() == true  then
+                    if unit:getPlayerName() == nil and unit:inAir() == true then
                         atLeastOneUnitAirborn = true
                         break
                     end
