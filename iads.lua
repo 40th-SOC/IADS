@@ -1,12 +1,14 @@
 iads = {}
 
+iads.util = {}
+
 do
     local configDefaults = {
-        ["ENABLE_TACTICAL_SAMS"] = true,
-        ["MAX_INTERCEPTOR_GROUPS"] = 2,
-        ["ENABLE_THREAT_MATCH"] = true,
-        ["REINFORCEMENT_INTERVAL"] = 1500,
-        ["RESPAWN_INTERCEPTORS"] = true,
+   ["ENABLE_TACTICAL_SAMS"] = true,
+   ["MAX_INTERCEPTOR_GROUPS"] = 2,
+   ["ENABLE_THREAT_MATCH"] = true,
+   ["REINFORCEMENT_INTERVAL"] = 1500,
+   ["RESPAWN_INTERCEPTORS"] = true,
         ["MAX_INTERCEPTOR_GROUPS_FLAG"] = nil,
         ["VALID_SEARCH_RADARS"] = {
             ["p-19 s-125 sr"] = true,		--SA-3 Search Radar
@@ -36,6 +38,7 @@ do
         ["IGNORE_GROUPS"] = nil,
         ["RMAX_MODIFIER"] = 0.8,
         ["IGNORE_SAM_GROUPS"] = nil,
+        ["AIRSPACE_ZONE_POINTS"] = nil
     }
 
     local THREAT_LEVELS = {
@@ -416,13 +419,35 @@ do
         end
     end
 
+    local function isValidTarget(target)
+        if not target then
+            return false
+        end
+
+        if target and target:getCategory() ~= Object.Category.UNIT then
+            return false
+        end
+
+        if internalConfig.AIRSPACE_ZONE_POINTS ~= nil then
+            local p = target:getPoint()
+
+            if mist.pointInPolygon(p, internalConfig.AIRSPACE_ZONE_POINTS) then
+                return true
+            else
+                return false
+            end
+        end
+
+        return true
+    end
+
     local function runIADS()
         local allTargets = findDetectedTargets()
 
         for i,v in ipairs(allTargets) do
             local target = v.target
 
-            if target and target:getCategory() == Object.Category.UNIT then
+            if isValidTarget(target) then
                 if internalConfig.ENABLE_TACTICAL_SAMS then
                     activateNearbySAMs(target)
                 end
@@ -568,5 +593,16 @@ do
         log(mist.utils.tableShow(internalConfig))
 
         mist.addEventHandler(IADSEventHandler)
+    end
+
+    function iads.util.pointsFromTriggerZones(zones)
+        local points = {}
+        for i,zoneName in ipairs(zones) do
+            local zone = trigger.misc.getZone(zoneName)
+            local p2 = { x=zone.point.x, y=zone.point.z }
+            table.insert(points, p2)
+        end
+
+        return points
     end
 end
