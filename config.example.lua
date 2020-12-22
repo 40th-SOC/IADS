@@ -72,7 +72,18 @@ iads.config = {
         "border-7",
         "border-8",
         "border-9",
-    })
+	}),
+	["PATROL_ROUTES"] = {
+		["Eastern CAP"] = {
+			altitude = 20000,
+			speed = 300,
+			startPoint = { x: 0, y: 0 }
+			endPoint = { x: 0, y: 0 }
+		}
+	},
+	-- ["PATROL_ROUTES"] = {
+	-- 	["Eastern CAP"] = {}
+	-- }
 }
 
 -- Call this AFTER setting configuration options

@@ -86,6 +86,8 @@ do
 
     local inAirCAPGroups = {}
 
+    local patrolRouteStatus = {}
+
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
 
@@ -419,6 +421,42 @@ do
         end
     end
 
+    local function taskGroupWithPatrol(group, routeName, route)
+        local controller = group:getController()
+
+        controller:setCommand({
+            id = 'Start',
+            params = {},
+        })
+
+        -- Setting a delay here seems to work for some reason.
+        -- Otherwise routes will be ignored.
+        timer.scheduleFunction(function() 
+            mist.goRoute(group:getName(), route)
+            controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.RETURN_FIRE)
+        end, nil, timer.getTime() + 60)
+
+        log("Tasking group %s with patrol route %s", group:getName(), routeName)
+
+        patrolRouteStatus[routeName] = group
+    end
+
+    local function dispatchPatrolRoutes()
+        for routeName,route in pairs(internalConfig.PATROL_ROUTES) do
+            if patrolRouteStatus[routeName] == nil then
+                local available = findAvailableInterceptors(route.startPoint)
+    
+                if #available > 0 then
+                    local group = available[1].group
+    
+                    taskGroupWithPatrol(group, routeName, route)
+                else
+                    log("No fighters available to dispatch for patrol route %s", routeName)
+                end
+            end
+        end
+    end
+
     local function isValidTarget(target)
         if not target then
             return false
@@ -532,6 +570,7 @@ do
             -- Reset this to ensure a group doesn't get to loiter if they have alreay been targeted
             uniqueDetectedGroups = {}
         end
+        dispatchPatrolRoutes()
     end
 
     local function respawnInterceptors(group)
@@ -579,18 +618,21 @@ do
         end
     end
 
+
+
     function iads.init() 
         internalConfig = buildConfig()
 
         buildSAMDatabase()
         buildInterceptorDatabase()
+        dispatchPatrolRoutes()
 
         mist.scheduleFunction(reconcileState, nil, 10, internalConfig.REINFORCEMENT_INTERVAL)
 
         mist.scheduleFunction(runIADS, nil, 0, 10)
 
         trigger.action.outText("IADS script initialized", 30)
-        log(mist.utils.tableShow(internalConfig))
+        -- log(mist.utils.tableShow(internalConfig))
 
         mist.addEventHandler(IADSEventHandler)
     end
@@ -604,5 +646,21 @@ do
         end
 
         return points
+    end
+
+    function iads.util.routeFromGroup(groupName)
+        local route = mist.getGroupRoute(mizGroupName, true)
+
+        if not route then
+            log("Group not found: %s", groupName)
+            return nil
+        end
+
+        if not found then
+            log("No matching group found")
+            return nil
+        end
+
+        return route
     end
 end
