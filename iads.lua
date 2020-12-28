@@ -78,15 +78,13 @@ do
 
     local uniqueDetectedGroups = {}
 
-    local interceptors = {}
-
     local redAirCount = 0
 
     local internalConfig = {}
 
-    local inAirCAPGroups = {}
-
     local patrolRouteStatus = {}
+
+    local fighterInventory = {}
 
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
@@ -179,19 +177,15 @@ do
 
                         local groupName =  env.getValueDictByKey(group.name)
                         local gameGroup = Group.getByName(groupName)
+                        local inAir = gameGroup and gameGroup:getUnits()[1]:inAir()
 
-                        if gameGroup and gameGroup:getUnits()[1]:inAir() then
-                            table.insert(inAirCAPGroups, groupName)
-                        else 
-                            table.insert(interceptors, groupName)
-                        end     
+                        table.insert(fighterInventory, groupName)
                     end
                 end
             end
         end
 
-        log("Airborne CAP groups found: %s", mist.utils.tableShow(inAirCAPGroups))
-        log("Parked interceptor groups found: %s", mist.utils.tableShow(interceptors))
+        log("Fighter groups found: %s", mist.utils.tableShow(fighterInventory))
     end
 
     local function findDetectedTargets()
@@ -216,31 +210,29 @@ do
     local function findAvailableInterceptors(targetPos)
         local orderedInterceptors = {}
 
-        for i,groupName in ipairs(inAirCAPGroups) do
+        for i,groupName in ipairs(fighterInventory) do
             local group = Group.getByName(groupName)
             local units = group:getUnits()
+            local inAir = units[1]:inAir()
             local dist = mist.utils.get2DDist(targetPos, units[1]:getPoint())
-            table.insert(orderedInterceptors, { distance=dist, group=group, airborne=true })
-            
-            table.remove(inAirCAPGroups, i)
+            table.insert(orderedInterceptors, { distance=dist, group=group, airborne=inAir })
         end
 
-        if table.getn(orderedInterceptors) == 0 then
-            for i,groupName in ipairs(interceptors) do
-                local group = Group.getByName(groupName)
-    
-                if group and group:getController():hasTask() == false then
-                    local units = group:getUnits()
-                    local dist = mist.utils.get2DDist(targetPos, units[1]:getPoint())
-                    table.insert(orderedInterceptors, { distance=dist, group=group, airborne=false })
-                end
-    
+        table.sort(orderedInterceptors, function(a,b)
+            -- Lua has weird rules about sorting function validity.
+            -- Do these nil checks to give a valid sort function.
+            if a == nil and b == nil then return false end
+            if a == nil then return true end
+            if b == nil then return false end
+
+            if a.airborne == true and b.airborne == false then
+                return true
             end
-        end
 
-        table.sort(orderedInterceptors, function(a,b) return a.distance < b.distance end)
+            return a.distance < b.distance
+        end)
 
-        -- Returns a table with { group=Group, dist=Number }
+        -- Returns a table with { group=Group, dist=Number, airborne=bool }
         return orderedInterceptors
     end
 
@@ -334,6 +326,83 @@ do
         return false
     end
 
+    local function taskGroupWithPatrol(group, routeName, route)
+        local controller = group:getController()
+
+        controller:setCommand({
+            id = 'Start',
+            params = {},
+        })
+
+        -- Setting a delay here seems to work for some reason.
+        -- Otherwise routes will be ignored.
+        timer.scheduleFunction(function() 
+            mist.goRoute(group:getName(), route)
+            controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.RETURN_FIRE)
+        end, nil, timer.getTime() + 60)
+
+        log("Tasking group %s with patrol route %s", group:getName(), routeName)
+
+        patrolRouteStatus[routeName] = group
+    end
+
+    local function dispatchPatrolRoutes()
+        for routeName,route in pairs(internalConfig.PATROL_ROUTES) do
+            if patrolRouteStatus[routeName] == nil then
+                local startPoint = route[2]
+                local available = findAvailableInterceptors(startPoint)
+    
+                if #available > 0 then
+                    local group = available[1].group
+    
+                    taskGroupWithPatrol(group, routeName, route)
+                else
+                    log("No fighters available to dispatch for patrol route %s", routeName)
+                end
+            end
+        end
+    end
+
+    local function backfillCAPRoute(prevGroup)
+        local needsBackfill = false
+        local patrolRouteName = ""
+            -- See if this group was on a patrol
+        for routeName,patrolGroup in pairs(patrolRouteStatus) do
+            if prevGroup:getName() == patrolGroup:getName() then
+                needsBackfill = true
+                patrolRouteName = routeName
+                patrolRouteStatus[routeName] = nil
+                break
+            end
+        end
+
+        if not needsBackfill then
+            return
+        end
+
+        -- We assume that the previous group tasked with the patrol is a good
+        -- indicator of the route position.
+        -- Saves a wonky lookup to find the route starting point from the internalConfig.
+        local routePos = prevGroup:getUnits()[1]:getPoint()
+        local available = findAvailableInterceptors(routePos)
+
+        for i,interceptorGroup in ipairs(available) do
+            if not interceptorGroup.airborne then
+                -- Send the first group that is parked
+                for name,route in pairs(internalConfig.PATROL_ROUTES) do
+                    if name == patrolRouteName then
+                        log("Backfilling patrol route %s", patrolRouteName)
+                        taskGroupWithPatrol(interceptorGroup.group, patrolRouteName, route)
+                        break
+                    end
+                end
+                
+                break
+            end
+        end
+
+    end
+
     local function launchInterceptors(target, threatLevel)
         local interceptGroup = nil
 
@@ -379,6 +448,8 @@ do
 
         log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
 
+        backfillCAPRoute(group)
+
         return true
     end
 
@@ -416,42 +487,6 @@ do
                         tacticalSAMs[i].state = SAM_STATES.ACTIVE
                         tacticalSAMs[i].timer = mist.scheduleFunction(possiblyDisableSAM, { group:getName(), i }, timer.getTime() + 10, 10, nil)
                     end
-                end
-            end
-        end
-    end
-
-    local function taskGroupWithPatrol(group, routeName, route)
-        local controller = group:getController()
-
-        controller:setCommand({
-            id = 'Start',
-            params = {},
-        })
-
-        -- Setting a delay here seems to work for some reason.
-        -- Otherwise routes will be ignored.
-        timer.scheduleFunction(function() 
-            mist.goRoute(group:getName(), route)
-            controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.RETURN_FIRE)
-        end, nil, timer.getTime() + 60)
-
-        log("Tasking group %s with patrol route %s", group:getName(), routeName)
-
-        patrolRouteStatus[routeName] = group
-    end
-
-    local function dispatchPatrolRoutes()
-        for routeName,route in pairs(internalConfig.PATROL_ROUTES) do
-            if patrolRouteStatus[routeName] == nil then
-                local available = findAvailableInterceptors(route.startPoint)
-    
-                if #available > 0 then
-                    local group = available[1].group
-    
-                    taskGroupWithPatrol(group, routeName, route)
-                else
-                    log("No fighters available to dispatch for patrol route %s", routeName)
                 end
             end
         end
@@ -526,7 +561,7 @@ do
     end
 
     local function isKnownInterceptor(groupName)
-        for i,name in ipairs(interceptors) do
+        for i,name in ipairs(fighterInventory) do
             if groupName == name then
                 return true
             end
@@ -607,7 +642,7 @@ do
                     return 
                 end
 
-                if hasValue(interceptors, group:getName()) == false then
+                if hasValue(fighterInventory, group:getName()) == false then
                     return
                 end
 
@@ -649,15 +684,10 @@ do
     end
 
     function iads.util.routeFromGroup(groupName)
-        local route = mist.getGroupRoute(mizGroupName, true)
+        local route = mist.getGroupRoute(groupName, true)
 
         if not route then
             log("Group not found: %s", groupName)
-            return nil
-        end
-
-        if not found then
-            log("No matching group found")
             return nil
         end
 
