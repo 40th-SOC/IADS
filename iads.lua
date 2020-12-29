@@ -86,6 +86,8 @@ do
 
     local fighterInventory = {}
 
+    local activeEngagments = {}
+
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
 
@@ -212,10 +214,16 @@ do
 
         for i,groupName in ipairs(fighterInventory) do
             local group = Group.getByName(groupName)
-            local units = group:getUnits()
-            local inAir = units[1]:inAir()
-            local dist = mist.utils.get2DDist(targetPos, units[1]:getPoint())
-            table.insert(orderedInterceptors, { distance=dist, group=group, airborne=inAir })
+
+            if group then
+                -- Only select groups that are not engaged
+                if not activeEngagments[group:getName()] then
+                    local units = group:getUnits()
+                    local inAir = units[1]:inAir()
+                    local dist = mist.utils.get2DDist(targetPos, units[1]:getPoint())
+                    table.insert(orderedInterceptors, { distance=dist, group=group, airborne=inAir })
+                end
+            end
         end
 
         table.sort(orderedInterceptors, function(a,b)
@@ -346,7 +354,15 @@ do
         patrolRouteStatus[routeName] = group
     end
 
+    local function iadsHasCapacity()
+        return redAirCount < internalConfig.MAX_INTERCEPTOR_GROUPS
+    end
+
     local function dispatchPatrolRoutes()
+        if not internalConfig.PATROL_ROUTES then
+            return
+        end
+
         for routeName,route in pairs(internalConfig.PATROL_ROUTES) do
             if patrolRouteStatus[routeName] == nil then
                 local startPoint = route[2]
@@ -445,10 +461,15 @@ do
         })
 
         controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.WEAPON_FREE)
+        activeEngagments[group:getName()] = true
 
         log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
 
-        backfillCAPRoute(group)
+        if  internalConfig.PATROL_ROUTES and iadsHasCapacity() then
+            backfillCAPRoute(group)
+        else
+            log("Skipping patrol backfill; IADS at capacity")
+        end
 
         return true
     end
@@ -544,7 +565,7 @@ do
 
                     log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
                     
-                    if redAirCount < internalConfig.MAX_INTERCEPTOR_GROUPS then
+                    if iadsHasCapacity() then
                         local didLaunch = launchInterceptors(target, threatLevel)
                         -- Only increment if a group is taking off from an airbase
                         -- This should increment up to the MAX_RED_AIR_COUNT and no further.
@@ -604,6 +625,7 @@ do
             redAirCount = aliveOrAirborn
             -- Reset this to ensure a group doesn't get to loiter if they have alreay been targeted
             uniqueDetectedGroups = {}
+            activeEngagments = {}
         end
         dispatchPatrolRoutes()
     end
