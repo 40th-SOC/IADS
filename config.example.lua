@@ -1,42 +1,3 @@
-## IADS Script
-
-<b>Requires MIST</b>
-
-### About
-
-This script simulates a modern integrated air defense system (IADS). Early-warning (EW) radars will alert tactical SAM sites when a target as near, as well as dispatch interceptors to engage threats. Communication between units is modelled as a distrubuted network, rather than any centrally located controllers.
-
-Features:
-
-- <b>Simulates air defense rollback:</b> destroying EW radars will "blind" this IADS, meaning it will not be able to activate tactical SAMs or dispatch interceptors for threats it cannot see.
-
-- <b>Simplifies mission creation:</b> place EWR radars and "Uncontrolled" groups of jets, and the IADS script will dispatch interceptors when it detects threats. There is no need to set up trigger zones for interceptors.
-
-- <b>Creates a dymanic SEAD environment:</b> Tactical SAMs will not illuminate until they have a valid target. This makes them more realistic and harder to kill.
-
-- <b>Allows for radar evasion tactics:</b> Players can hide from the IADS by using terrain cover, which opens up new tactics (as opposed to trigger zones).
-
-- <b>Good for long-running missions:</b> Interceptors can be set to respawn, so missions that run for several hours will continuously dispatch fighters throughout the mission.
-
-- <b>Matches threats to aggressors:</b> with threat-matching enabled, the IADS will scale the response to a BLUFOR aggressor's level. For example, if a 4-ship of aggressor Hornets is detected, a 4-ship of MiG-29s might be dispatched, but 2-ship of aggressor Mirages will will trigger a 2-ship of MiG-21s.
-
-### Usage
-
-To use the IADS script, download the contents of `iads.lua` and add a "DO SCRIPT FILE" action to your mission. Once the script is loaded, add a "DO SCRIPT" action with the following code:
-
-```lua
-iads.init()
-```
-
-Set any interceptor groups in the mission editor to <b>"Uncontrolled"</b>. Interceptor groups must have either the <b>"CAP" or "Intercept"</b> task set in the mission editor. Also, ensure they have weapons equipped!
-
-### Configuration:
-
-Add a trigger action <b>AFTER</b> the `iads.lua` script has been loaded, add a "DO SCRIPT" action. Any configuration options NOT specified will be set to their default (shown below).
-
-These are the available configuration options:
-
-```lua
 iads.config = {
 	-- Allows EWR units to control tactical SAM radars.
 	-- If an EWR detects a target within a SAM battery's firing range, it will tell the SAM to illuminate and engage.
@@ -90,45 +51,40 @@ iads.config = {
 	-- Groups that will NOT have interceptors launched against them.
 	-- Useful for preventing attacks on tankers/AWACS/Drones.
 	-- SAMs may still activate.
-	["IGNORE_GROUPS"] = {
+	["IGNORE_GROUPS"]  {
 		"Some Group Name",
     },
     -- Tactical SAM engagment modifier.
     -- If this modifier is set to 1, the SAM will engage at max range.
     -- If it is set to 0.8, the SAM will engage at 80% of max range.
     -- Engageming at less than max range will make SAMs deadlier.
-	["RMAX_MODIFIER"] = 0.8,
-	-- If definded the IADS will only engage targets within the polygon
-	-- defined by a table of vec2 points.
-	-- Defaults to nil.
+    ["RMAX_MODIFIER"] = 0.8,
+
+    -- If definded the IADS will only engage targets within the polygon 
+    -- defined by a table of vec2 points
     ["AIRSPACE_ZONE_POINTS"] = iads.util.pointsFromTriggerZones({
         "border-1",
         "border-2",
         "border-3",
-    })
+        "border-4",
+        "border-5",
+        "border-6",
+        "border-7",
+        "border-8",
+        "border-9",
+	}),
+	["PATROL_ROUTES"] = {
+		["Eastern CAP"] = {
+			altitude = 20000,
+			speed = 300,
+			startPoint = { x: 0, y: 0 }
+			endPoint = { x: 0, y: 0 }
+		}
+	},
+	-- ["PATROL_ROUTES"] = {
+	-- 	["Eastern CAP"] = {}
+	-- }
 }
 
 -- Call this AFTER setting configuration options
 iads.init()
-```
-
-## Development
-
-Set this in your `<DCS install directory>\Scripts\MissionScripting.lua`
-
-```lua
-do
-	__DEV_ENV = true
-	-- sanitizeModule('os')
-	-- sanitizeModule('io')
-	-- sanitizeModule('lfs')
-	require = nil
-	loadlib = nil
-end
-```
-
-Add this to a "DO SCRIPT" action in your mission to reload the scripts every time the mission starts.
-
-```lua
-dofile(lfs.writedir()..[[..\..\dcs_scripts\iads.lua]])
-```
