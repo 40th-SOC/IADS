@@ -130,5 +130,5 @@ end
 Add this to a "DO SCRIPT" action in your mission to reload the scripts every time the mission starts.
 
 ```lua
-dofile(lfs.writedir()..[[..\..\dcs_scripts\iads.lua]])
+dofile(lfs.writedir()..[[..\..\IADS\iads.lua]])
 ```
