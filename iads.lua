@@ -175,11 +175,9 @@ do
         for i,c in ipairs(env.mission.coalition.red.country) do
             if (c.plane) then
                 for i,group in ipairs(c.plane.group) do
-                    if group.task == "CAP" or group.task == "Intercept" then
-
+                    if (group.task == "CAP" or group.task == "Intercept") and not group.lateActivation then
                         local groupName =  env.getValueDictByKey(group.name)
                         local gameGroup = Group.getByName(groupName)
-                        local inAir = gameGroup and gameGroup:getUnits()[1]:inAir()
 
                         table.insert(fighterInventory, groupName)
                     end
@@ -714,5 +712,9 @@ do
         end
 
         return route
+    end
+    function iads.addInterceptorGroup(groupName)
+        log("Adding interceptor group %s", groupName)
+        table.insert(fighterInventory, groupName)
     end
 end
