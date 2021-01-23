@@ -713,6 +713,19 @@ do
 
         return route
     end
+
+    function iads.util.borderFromGroupRoute(groupName)
+        local points = {}
+        local route = mist.getGroupRoute(groupName, true)
+
+        for i,point in ipairs(route) do
+            local p = {x=point.x, y=point.y}
+            table.insert(points, p)
+        end
+        
+        return points
+    end
+
     function iads.addInterceptorGroup(groupName)
         log("Adding interceptor group %s", groupName)
         table.insert(fighterInventory, groupName)

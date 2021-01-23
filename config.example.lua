@@ -62,28 +62,11 @@ iads.config = {
 
     -- If definded the IADS will only engage targets within the polygon 
     -- defined by a table of vec2 points
-    ["AIRSPACE_ZONE_POINTS"] = iads.util.pointsFromTriggerZones({
-        "border-1",
-        "border-2",
-        "border-3",
-        "border-4",
-        "border-5",
-        "border-6",
-        "border-7",
-        "border-8",
-        "border-9",
-	}),
+    ["AIRSPACE_ZONE_POINTS"] = iads.util.borderFromGroupRoute("BorderGroup"),
 	["PATROL_ROUTES"] = {
-		["Eastern CAP"] = {
-			altitude = 20000,
-			speed = 300,
-			startPoint = { x: 0, y: 0 }
-			endPoint = { x: 0, y: 0 }
-		}
-	},
-	-- ["PATROL_ROUTES"] = {
-	-- 	["Eastern CAP"] = {}
-	-- }
+		["Eastern CAP"] = iads.util.routeFromGroup("Eastern Patrol"),
+		["Western CAP"] = iads.util.routeFromGroup("Western Patrol")
+	}
 }
 
 -- Call this AFTER setting configuration options
