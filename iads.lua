@@ -361,15 +361,25 @@ do
             return
         end
 
+        -- Keeps track of the groups already tasked to avoid assigning the same group twice.
+        local taskedGroups = {}
+
         for routeName,route in pairs(internalConfig.PATROL_ROUTES) do
             if patrolRouteStatus[routeName] == nil then
                 local startPoint = route[2]
                 local available = findAvailableInterceptors(startPoint)
     
                 if #available > 0 then
-                    local group = available[1].group
-    
-                    taskGroupWithPatrol(group, routeName, route)
+                    for i,a in ipairs(available) do
+                        local group = a.group
+                        local groupName = group:getName()
+
+                        if not taskedGroups[groupName] then
+                            taskedGroups[groupName] = true
+                            taskGroupWithPatrol(group, routeName, route)
+                            break
+                        end
+                    end
                 else
                     log("No fighters available to dispatch for patrol route %s", routeName)
                 end
