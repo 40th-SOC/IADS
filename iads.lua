@@ -38,7 +38,8 @@ do
         ["IGNORE_GROUPS"] = nil,
         ["RMAX_MODIFIER"] = 0.8,
         ["IGNORE_SAM_GROUPS"] = nil,
-        ["AIRSPACE_ZONE_POINTS"] = nil
+        ["AIRSPACE_ZONE_POINTS"] = nil,
+        ["SAMS_IGNORE_BORDERS"] = false,
     }
 
     local THREAT_LEVELS = {
@@ -549,8 +550,12 @@ do
         for i,v in ipairs(allTargets) do
             local target = v.target
 
+            if internalConfig.ENABLE_TACTICAL_SAMS and internalConfig.SAMS_IGNORE_BORDERS then
+                activateNearbySAMs(target)
+            end
+
             if isValidTarget(target) then
-                if internalConfig.ENABLE_TACTICAL_SAMS then
+                if internalConfig.ENABLE_TACTICAL_SAMS and not internalConfig.SAMS_IGNORE_BORDERS then
                     activateNearbySAMs(target)
                 end
 

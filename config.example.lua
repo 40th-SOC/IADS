@@ -66,7 +66,11 @@ iads.config = {
 	["PATROL_ROUTES"] = {
 		["Eastern CAP"] = iads.util.routeFromGroup("Eastern Patrol"),
 		["Western CAP"] = iads.util.routeFromGroup("Western Patrol")
-	}
+	},
+	-- Whether or not SAMs respect the IADS border. 
+	-- If false, SAMs will illuminate whenever they have a firing solution, 
+	-- regardless of whether the target is inside the IADS border.
+	["SAMS_IGNORE_BORDERS "] = false,
 }
 
 -- Call this AFTER setting configuration options
