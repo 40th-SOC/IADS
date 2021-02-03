@@ -469,7 +469,7 @@ do
             }
         })
 
-        controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.WEAPON_FREE)
+        controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.OPEN_FIRE_WEAPON_FREE)
         activeEngagments[group:getName()] = true
 
         log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
@@ -667,9 +667,9 @@ do
                 log("Running custom respawn handler...")
                 customRespawnHandler(group:getName())
             else
-            mist.respawnGroup(group:getName(), true)
+                mist.respawnGroup(group:getName(), true)
+            end
         end
-    end
     end
 
     local function IADSEventHandler(event)
