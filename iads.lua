@@ -653,7 +653,8 @@ do
 
         local respawn = true
         for i,u in ipairs(group:getUnits()) do
-            if u:inAir() then
+            local velocity = mist.vec.mag(u:getVelocity())  
+            if velocity > 0 then
                 respawn = false
                 break
             end
