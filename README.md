@@ -6,7 +6,7 @@
 
 This script simulates a modern integrated air defense system (IADS). Early-warning (EW) radars will alert tactical SAM sites when a target as near, as well as dispatch interceptors to engage threats. Communication between units is modelled as a distrubuted network, rather than any centrally located controllers.
 
-Features:
+Benefits:
 
 - <b>Simulates air defense rollback:</b> destroying EW radars will "blind" this IADS, meaning it will not be able to activate tactical SAMs or dispatch interceptors for threats it cannot see.
 
@@ -19,6 +19,8 @@ Features:
 - <b>Good for long-running missions:</b> Interceptors can be set to respawn, so missions that run for several hours will continuously dispatch fighters throughout the mission.
 
 - <b>Matches threats to aggressors:</b> with threat-matching enabled, the IADS will scale the response to a BLUFOR aggressor's level. For example, if a 4-ship of aggressor Hornets is detected, a 4-ship of MiG-29s might be dispatched, but 2-ship of aggressor Mirages will will trigger a 2-ship of MiG-21s.
+
+- <b>Supports border configuration:</b> if a border option is specified, the IADS will ignore groups that are outside of the border. SAMs can be configure to ignore borders with the `SAMS_IGNORE_BORDERS` configuration option.
 
 ### Usage
 
@@ -90,26 +92,37 @@ iads.config = {
 	-- Groups that will NOT have interceptors launched against them.
 	-- Useful for preventing attacks on tankers/AWACS/Drones.
 	-- SAMs may still activate.
-	["IGNORE_GROUPS"] = {
+	["IGNORE_GROUPS"]  {
 		"Some Group Name",
     },
     -- Tactical SAM engagment modifier.
     -- If this modifier is set to 1, the SAM will engage at max range.
     -- If it is set to 0.8, the SAM will engage at 80% of max range.
     -- Engageming at less than max range will make SAMs deadlier.
-	["RMAX_MODIFIER"] = 0.8,
-	-- If definded the IADS will only engage targets within the polygon
-	-- defined by a table of vec2 points.
-	-- Defaults to nil.
-    ["AIRSPACE_ZONE_POINTS"] = iads.util.pointsFromTriggerZones({
-        "border-1",
-        "border-2",
-        "border-3",
-    })
+    ["RMAX_MODIFIER"] = 0.8,
+
+    -- If definded the IADS will only engage targets within the polygon
+    -- defined by a table of vec2 points
+    ["AIRSPACE_ZONE_POINTS"] = iads.util.borderFromGroupRoute("BorderGroup"),
+	["PATROL_ROUTES"] = {
+		["Eastern CAP"] = iads.util.routeFromGroup("Eastern Patrol"),
+		["Western CAP"] = iads.util.routeFromGroup("Western Patrol")
+	},
+	-- Whether or not SAMs respect the IADS border.
+	-- If false, SAMs will illuminate whenever they have a firing solution,
+	-- regardless of whether the target is inside the IADS border.
+	["SAMS_IGNORE_BORDERS "] = false,
 }
 
 -- Call this AFTER setting configuration options
 iads.init()
+
+-- To add a custom respawn handler, provide a callback function like so:
+function myCustomShutdownHandler(groupName)
+	trigger.action.outText(string.format("Custom handler. Group name %s", groupName), 30)
+end
+
+iads.onInterceptorShutdown(myCustomShutdownHandler)
 ```
 
 ## Development

@@ -75,3 +75,10 @@ iads.config = {
 
 -- Call this AFTER setting configuration options
 iads.init()
+
+-- To add a custom respawn handler, provide a callback function like so:
+function myCustomShutdownHandler(groupName)
+	trigger.action.outText(string.format("Custom handler. Group name %s", groupName), 30)
+end
+
+iads.onInterceptorShutdown(myCustomShutdownHandler)
