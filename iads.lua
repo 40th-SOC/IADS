@@ -643,6 +643,8 @@ do
         dispatchPatrolRoutes()
     end
 
+    local customRespawnHandler = nil
+
     local function respawnInterceptors(group)
         -- Don't respawn anything but airplanes.
         if group:getCategory() ~= Group.Category.AIRPLANE then
@@ -659,8 +661,14 @@ do
 
         if respawn == true then
             log("Group landed: %s. Restocking...", group:getName())
+
+            if customRespawnHandler then
+                log("Running custom respawn handler...")
+                customRespawnHandler(group:getName())
+            else
             mist.respawnGroup(group:getName(), true)
         end
+    end
     end
 
     local function IADSEventHandler(event)
@@ -744,5 +752,9 @@ do
     function iads.addInterceptorGroup(groupName)
         log("Adding interceptor group %s", groupName)
         table.insert(fighterInventory, groupName)
+    end
+
+    function iads.onInterceptorShutdown(fn)
+        customRespawnHandler = fn
     end
 end
