@@ -469,7 +469,7 @@ do
             }
         })
 
-        controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.WEAPON_FREE)
+        controller:setOption(AI.Option.Air.id.ROE, AI.Option.Air.val.ROE.OPEN_FIRE_WEAPON_FREE)
         activeEngagments[group:getName()] = true
 
         log("Tasking %s, Target: %s", group:getName(), target:getGroup():getName())
@@ -643,6 +643,8 @@ do
         dispatchPatrolRoutes()
     end
 
+    local customRespawnHandler = nil
+
     local function respawnInterceptors(group)
         -- Don't respawn anything but airplanes.
         if group:getCategory() ~= Group.Category.AIRPLANE then
@@ -651,7 +653,8 @@ do
 
         local respawn = true
         for i,u in ipairs(group:getUnits()) do
-            if u:inAir() then
+            local velocity = mist.vec.mag(u:getVelocity())  
+            if velocity > 0 then
                 respawn = false
                 break
             end
@@ -659,7 +662,13 @@ do
 
         if respawn == true then
             log("Group landed: %s. Restocking...", group:getName())
-            mist.respawnGroup(group:getName(), true)
+
+            if customRespawnHandler then
+                log("Running custom respawn handler...")
+                customRespawnHandler(group:getName())
+            else
+                mist.respawnGroup(group:getName(), true)
+            end
         end
     end
 
@@ -744,5 +753,9 @@ do
     function iads.addInterceptorGroup(groupName)
         log("Adding interceptor group %s", groupName)
         table.insert(fighterInventory, groupName)
+    end
+
+    function iads.onInterceptorShutdown(fn)
+        customRespawnHandler = fn
     end
 end
