@@ -71,6 +71,11 @@ iads.config = {
 	-- If false, SAMs will illuminate whenever they have a firing solution, 
 	-- regardless of whether the target is inside the IADS border.
 	["SAMS_IGNORE_BORDERS "] = false,
+	-- When a member of a CAP flight reaches this fuel threshold,
+	-- the flight will RTB. Their CAP tasking will be backfilled.
+	["CAP_FLIGHT_BINGO_PERCENT"] = 0.30,
+	-- How often to check CAP flight fuel statuses.
+	["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
 }
 
 -- Call this AFTER setting configuration options

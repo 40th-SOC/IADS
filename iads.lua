@@ -89,6 +89,10 @@ do
 
     local activeEngagments = {}
 
+    local homeAirbaseLookup = {}
+
+    local airbaseLookup = {}
+
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
 
@@ -181,12 +185,25 @@ do
                         local gameGroup = Group.getByName(groupName)
 
                         table.insert(fighterInventory, groupName)
+                        -- Store the home airbase so we can easily figure where
+                        -- they need to RTB when out of gas.
+                        local airbaseId = group.route.points[1].airdromeId
+                        homeAirbaseLookup[groupName] = airbaseId
                     end
                 end
             end
         end
 
         log("Fighter groups found: %s", mist.utils.tableShow(fighterInventory))
+    end
+
+    local function buildAirbaseDatabase()
+        for i,airbase in ipairs(coalition.getAirbases(coalition.side.RED)) do
+            local id = airbase:getID()
+            local name = airbase:getName()
+
+            airbaseLookup[id] = name
+        end
     end
 
     local function findDetectedTargets()
@@ -697,18 +714,57 @@ do
         end
     end
 
+    local function backfillLowFuelStates()
+        for routeName,group in pairs(patrolRouteStatus) do
+            if group then
+                for i,unit in ipairs(group:getUnits()) do
+                    if unit:getFuel() < internalConfig.CAP_FLIGHT_BINGO_PERCENT then
+                        log("Unit %s is bingo. Group %s is RTB.", unit:getName(), group:getName())
+                        local controller = group:getController()
 
+                        local homeAirbaseId = homeAirbaseLookup[group:getName()]
+                        local base = Airbase.getByName(airbaseLookup[homeAirbaseId])
+                        local point = base:getPoint()
+
+                        local rtb = { 
+                            id = 'Mission', 
+                            params = { 
+                                route = { 
+                                    points = { 
+                                        [1] = { 
+                                            type = AI.Task.WaypointType.LAND, 
+                                            airdromeId = homeAirbaseId, 
+                                            action = AI.Task.TurnMethod.FIN_POINT, 
+                                            x = point.x, 
+                                            y = point.z, 
+                                        }, 
+                                    } 
+                                }
+                            } 
+                        }
+
+                        controller:setTask(rtb)
+                        backfillCAPRoute(group)
+                        -- Break units loop
+                        break;
+                    end
+                end
+            end
+        end
+    end
 
     function iads.init() 
         internalConfig = buildConfig()
 
         buildSAMDatabase()
         buildInterceptorDatabase()
+        buildAirbaseDatabase()
         dispatchPatrolRoutes()
 
         mist.scheduleFunction(reconcileState, nil, 10, internalConfig.REINFORCEMENT_INTERVAL)
 
         mist.scheduleFunction(runIADS, nil, 0, 10)
+        mist.scheduleFunction(backfillLowFuelStates, nil, 0, internalConfig.CAP_FLIGHT_FUEL_CHECK_INTERVAL)
 
         trigger.action.outText("IADS script initialized", 30)
         -- log(mist.utils.tableShow(internalConfig))
