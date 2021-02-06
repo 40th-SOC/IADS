@@ -764,7 +764,7 @@ do
         mist.scheduleFunction(reconcileState, nil, 10, internalConfig.REINFORCEMENT_INTERVAL)
 
         mist.scheduleFunction(runIADS, nil, 0, 10)
-        mist.scheduleFunction(backfillLowFuelStates, nil, 0, 10)
+        mist.scheduleFunction(backfillLowFuelStates, nil, 0, internalConfig.CAP_FLIGHT_FUEL_CHECK_INTERVAL)
 
         trigger.action.outText("IADS script initialized", 30)
         -- log(mist.utils.tableShow(internalConfig))
