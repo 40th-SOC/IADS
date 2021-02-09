@@ -81,6 +81,17 @@ iads.config = {
 -- Call this AFTER setting configuration options
 iads.init()
 
+-- Example of adding an interceptor group after initializing the IADS.
+-- In this example, we activate a group, then provide the group's name
+-- and home airbase id.
+timer.scheduleFunction(function() 
+	local group = Group.getByName("LateActivation")
+
+	group:activate()
+	
+	iads.addInterceptorGroup(group:getName(), Airbase.getByName("Kutaisi"):getID())
+end, nil, timer.getTime() + 10)
+
 -- To add a custom respawn handler, provide a callback function like so:
 function myCustomShutdownHandler(groupName)
 	trigger.action.outText(string.format("Custom handler. Group name %s", groupName), 30)

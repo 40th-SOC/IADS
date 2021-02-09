@@ -806,9 +806,20 @@ do
         return points
     end
 
-    function iads.addInterceptorGroup(groupName)
-        log("Adding interceptor group %s", groupName)
+    function iads.addInterceptorGroup(groupName, aerodromeId)
+        if not groupName then
+            log("Could not add group. groupName not specified")
+            return
+        end
+
+        if not aerodromeId then
+            log("Could not add group. aerodromeId not specified")
+            return
+        end
+
+        log("Adding interceptor group %s, home base id: %s", groupName, aerodromeId)
         table.insert(fighterInventory, groupName)
+        homeAirbaseLookup[groupName] = aerodromeId
     end
 
     function iads.onInterceptorShutdown(fn)
