@@ -40,6 +40,8 @@ do
         ["IGNORE_SAM_GROUPS"] = nil,
         ["AIRSPACE_ZONE_POINTS"] = nil,
         ["SAMS_IGNORE_BORDERS"] = false,
+        ["MISSILE_ENGAGMENT_ZONE"] = nil,
+        ["FIGHTER_ENGAGMENT_ZONE"] = nil,
     }
 
     local THREAT_LEVELS = {
@@ -539,6 +541,10 @@ do
         end
     end
 
+    local function unitInsideZone(target, points)
+        return mist.pointInPolygon(target:getPoint(), points)
+    end
+
     local function isValidTarget(target)
         if not target then
             return false
@@ -548,17 +554,53 @@ do
             return false
         end
 
-        if internalConfig.AIRSPACE_ZONE_POINTS ~= nil then
-            local p = target:getPoint()
+        -- Could be nil, which would mean engage everything
+        local engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
 
-            if mist.pointInPolygon(p, internalConfig.AIRSPACE_ZONE_POINTS) then
-                return true
-            else
-                return false
-            end
+        if internalConfig.FIGHTER_ENGAGMENT_ZONE then
+            engagmentZone = internalConfig.FIGHTER_ENGAGMENT_ZONE
+        end
+
+        if engagmentZone then
+            return unitInsideZone(target, engagmentZone)
         end
 
         return true
+    end
+
+    local function targetIsIgnored(target)
+        if internalConfig.IGNORE_GROUPS then
+            for i,v in ipairs(internalConfig.IGNORE_GROUPS) do
+                if v == target:getGroup():getName() then
+                    return true
+                end
+            end
+        end
+
+        return false
+    end
+
+    local function possiblyEngageWithSAMs(target)
+        if targetIsIgnored(target) then
+            return
+        end
+        -- Only engage if the user is using tactical SAMS
+        if internalConfig.ENABLE_TACTICAL_SAMS then
+            -- If the user has specified a missile engagement zone,
+            -- check to make sure the target is within the zone before illuminating.
+            -- Else, use the IADS borders as the engagment zone.
+            local engagmentZone = nil
+
+            if internalConfig.MISSILE_ENGAGMENT_ZONE then
+                engagmentZone = internalConfig.MISSILE_ENGAGMENT_ZONE
+            else
+                engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
+            end
+
+            if unitInsideZone(target, engagmentZone) then
+                activateNearbySAMs(target)
+            end
+        end
     end
 
     local function runIADS()
@@ -567,14 +609,9 @@ do
         for i,v in ipairs(allTargets) do
             local target = v.target
 
-            if internalConfig.ENABLE_TACTICAL_SAMS and internalConfig.SAMS_IGNORE_BORDERS then
-                activateNearbySAMs(target)
-            end
+            possiblyEngageWithSAMs(target)
 
             if isValidTarget(target) then
-                if internalConfig.ENABLE_TACTICAL_SAMS and not internalConfig.SAMS_IGNORE_BORDERS then
-                    activateNearbySAMs(target)
-                end
 
                 local groupName = target:getGroup():getName()
 
@@ -584,13 +621,9 @@ do
 
                     uniqueDetectedGroups[groupName] = target
 
-                    if internalConfig.IGNORE_GROUPS then
-                        for i,v in ipairs(internalConfig.IGNORE_GROUPS) do
-                            if v == groupName then
-                                log("Ignoring detected group %s", groupName)
-                                return 
-                            end
-                        end
+                    if targetIsIgnored(target) then
+                        log("Ignoring detected group %s", groupName)
+                        return 
                     end
 
                     log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
@@ -755,6 +788,8 @@ do
 
     function iads.init() 
         internalConfig = buildConfig()
+
+        -- log(mist.utils.tableShow(internalConfig.MISSILE_ENGAGMENT_ZONE))
 
         buildSAMDatabase()
         buildInterceptorDatabase()
