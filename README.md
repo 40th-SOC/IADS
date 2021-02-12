@@ -104,19 +104,26 @@ iads.config = {
     -- If definded the IADS will only engage targets within the polygon
     -- defined by a table of vec2 points
     ["AIRSPACE_ZONE_POINTS"] = iads.util.borderFromGroupRoute("BorderGroup"),
+    -- Routes that will be tasked by the IADS.
+    -- These routes will be backfilled in the event that a patrolling group
+    -- gets tasked with an intercept, or if they RTB for fuel.
     ["PATROL_ROUTES"] = {
         ["Eastern CAP"] = iads.util.routeFromGroup("Eastern Patrol"),
         ["Western CAP"] = iads.util.routeFromGroup("Western Patrol")
     },
-    -- Whether or not SAMs respect the IADS border.
-    -- If false, SAMs will illuminate whenever they have a firing solution,
-    -- regardless of whether the target is inside the IADS border.
-    ["SAMS_IGNORE_BORDERS "] = false,
-    -- When a member of a CAP flight reaches this fuel threshold,
-    -- the flight will RTB. Their CAP tasking will be backfilled.
     ["CAP_FLIGHT_BINGO_PERCENT"] = 0.30,
     -- How often to check CAP flight fuel statuses.
     ["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
+    -- The zone in which SAMs will engage targets.
+    -- If not specified, uses `AIRSPACE_ZONE_POINTS`.
+    -- If AIRSPACE_ZONE_POINTS is not specified, SAMs will fire on any valid targets,
+    -- regardless of position.
+    ["MISSILE_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("MissileEngagmentZone"),
+    -- The zone in which interceptors will be dispatched to engage targets.
+    -- If not specified, uses `AIRSPACE_ZONE_POINTS`.
+    -- If AIRSPACE_ZONE_POINTS is not specified, fighters will launch on any valid targets,
+    -- regardless of position.
+    ["FIGHTER_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("FighterEngagmentZone"),
 }
 
 -- Call this AFTER setting configuration options
