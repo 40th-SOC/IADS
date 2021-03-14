@@ -55,6 +55,7 @@ do
             ["F-16C_50"] = true,
             ["F/A-18C"] = true,
         }
+        ["ENABLE_SAM_DEFENSE"] = false,
     }
 
     local THREAT_LEVELS = {
@@ -107,6 +108,10 @@ do
     local homeAirbaseLookup = {}
 
     local airbaseLookup = {}
+
+    -- Stores weapon IDs to prevent defending from the sam missile multiple times
+    -- { [objId]: true }
+    local acknowledgedMissiles = {}
 
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
@@ -241,6 +246,58 @@ do
         end
     end
 
+    -- Stolen from the mist development branch:
+    -- https://github.com/mrSkortch/MissionScriptingTools/compare/development
+    local function getHeadingPoints(point1, point2, north) 
+        if north then 
+            return mist.utils.getDir(mist.vec.sub(mist.utils.makeVec3(point2), mist.utils.makeVec3(point1)), (mist.utils.makeVec3(point1)))
+        else
+            return mist.utils.getDir(mist.vec.sub(mist.utils.makeVec3(point2), mist.utils.makeVec3(point1))) 
+        end
+    end
+
+    local function isSEADMissile(weapon)
+        -- local missile = weapon:getTypeName()
+        local description = weapon:getDesc()
+        return description.guidance == Weapon.GuidanceType.RADAR_PASSIVE
+    end
+
+    local function defendSAMGroup(groupPoint, unit, weapon)
+        local weaponId = weapon:getName()
+
+        if acknowledgedMissiles[weaponId] then
+            return
+        end
+
+        local dist = mist.utils.metersToNM(mist.utils.get3DDist(weapon:getPoint(), groupPoint))
+
+        if dist < 30 then
+            -- The direction the missile is travelling
+            local weaponHeading = mist.getHeading(weapon)
+            -- The heading that the missile would need to be traveling to impact the target
+            local interceptHeading = getHeadingPoints(weapon:getPoint(), groupPoint, true)
+    
+            local deltaHeading = math.abs(weaponHeading - interceptHeading) 
+            log("heading delta %s", deltaHeading)
+            if deltaHeading < 0.1 then
+                local group = unit:getGroup()
+                setRadarState({ group=group, enabled=false })
+                log("ARM %s inbound at %s, defending", group:getName(), weaponId)
+                acknowledgedMissiles[weaponId] = true
+            end  
+        end
+    end
+
+    local function defendTacticalSAMs(weapon)
+        for i,data in ipairs(tacticalSAMs) do
+            -- Guarding against a unit being dead
+            local unit = Unit.getByName(data.name)
+            if unit then
+                defendSAMGroup(data.avgPoint, unit, weapon)
+            end
+        end
+    end
+
     local function findDetectedTargets()
         local detectedUnits = {}
 
@@ -252,7 +309,19 @@ do
                 local controller = group:getController()
                 local detectedTargets = controller:getDetectedTargets()
                 for k,v in pairs (detectedTargets) do
-                    table.insert(detectedUnits, { target = v.object, detectedBy = group:getName() })
+
+                    if internalConfig.ENABLE_SAM_DEFENSE then
+                        if v.object:getCategory() == Object.Category.WEAPON and isSEADMissile(v.object) then
+                            if not acknowledgedMissiles[v.object:getName()] then
+                                log("Group %s detected ARM %s", group:getName(), v.object:getName())
+                                defendTacticalSAMs(v.object)
+                            end
+                        end
+                    end
+
+                    if v.object:getCategory() == Object.Category.UNIT then
+                        table.insert(detectedUnits, { target = v.object, detectedBy = group:getName() })
+                    end
                 end 
             end
         end
@@ -626,7 +695,7 @@ do
     local function targetIsIgnored(target)
         if internalConfig.IGNORE_GROUPS then
             for i,v in ipairs(internalConfig.IGNORE_GROUPS) do
-                if target and v == target:getGroup():getName() then
+                if target.getGroup and v == target:getGroup():getName() then
                     return true
                 end
             end
