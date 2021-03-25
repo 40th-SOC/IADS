@@ -83,6 +83,8 @@ iads.config = {
 	-- If AIRSPACE_ZONE_POINTS is not specified, fighters will launch on any valid targets, 
 	-- regardless of position.
 	["FIGHTER_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("FighterEngagmentZone"),
+	-- Use any AWACS units found in the mission as a search radar
+	["USE_AWACS_RADAR"] = true,
 }
 
 -- Call this AFTER setting configuration options
