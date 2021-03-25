@@ -816,7 +816,9 @@ do
         -- On the initial frame, the AWACS units have not registered themselves yet.
         -- Wait 1 second to give them time to initialize.
         -- Invoking addAWACSRadars on the first frame will result in an empty table.
-        timer.scheduleFunction(addAWACSRadars, nil, timer.getTime() + 1)
+        if internalConfig.USE_AWACS_RADAR then
+            timer.scheduleFunction(addAWACSRadars, nil, timer.getTime() + 1)
+        end
         buildInterceptorDatabase()
         buildAirbaseDatabase()
         dispatchPatrolRoutes()
