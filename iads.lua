@@ -42,6 +42,7 @@ do
         ["SAMS_IGNORE_BORDERS"] = false,
         ["MISSILE_ENGAGMENT_ZONE"] = nil,
         ["FIGHTER_ENGAGMENT_ZONE"] = nil,
+	    ["USE_AWACS_RADAR"] = true,
     }
 
     local THREAT_LEVELS = {
@@ -174,6 +175,26 @@ do
                         break
                     end
                 end
+            end
+        end
+
+    end
+
+    local function addAWACSRadars()
+        local awacs = coalition.getServiceProviders(coalition.side.RED, coalition.service.AWACS)
+
+        if not awacs or table.getn(awacs) == 0 then
+            log("No AWACS found")
+            return
+        end
+
+
+        for i,unit in ipairs(awacs) do
+            -- EWR sites come through as AWACS. 
+            -- Ensure no duplicates by checking for the airplane type.
+            if unit:getGroup():getCategory() == Unit.Category.AIRPLANE then
+                log("Found AWACS %s; adding as search radar", unit:getName())
+                table.insert(searchRadars, unit:getName())
             end
         end
     end
@@ -792,6 +813,10 @@ do
         -- log(mist.utils.tableShow(internalConfig.MISSILE_ENGAGMENT_ZONE))
 
         buildSAMDatabase()
+        -- On the initial frame, the AWACS units have not registered themselves yet.
+        -- Wait 1 second to give them time to initialize.
+        -- Invoking addAWACSRadars on the first frame will result in an empty table.
+        timer.scheduleFunction(addAWACSRadars, nil, timer.getTime() + 5)
         buildInterceptorDatabase()
         buildAirbaseDatabase()
         dispatchPatrolRoutes()
