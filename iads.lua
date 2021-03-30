@@ -234,7 +234,8 @@ do
         for i,c in ipairs(env.mission.coalition.red.country) do
             if (c.plane) then
                 for i,group in ipairs(c.plane.group) do
-                    if (group.task == "CAP" or group.task == "Intercept") and not group.lateActivation then
+                    local isPlayer = group.units[1].skill == "Client" or group.units[1].skill == "Player"
+                    if (group.task == "CAP" or group.task == "Intercept") and not isPlayer and not group.lateActivation then
                         local groupName =  env.getValueDictByKey(group.name)
                         local gameGroup = Group.getByName(groupName)
 
