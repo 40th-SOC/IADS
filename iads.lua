@@ -296,9 +296,11 @@ do
             -- `deltaHeading` is in radians. .01 means the missile is heading right for the target
             if deltaHeading < 0.1 then
                 local group = unit:getGroup()
-
-                log("ARM %s inbound at %s, defending", weaponId, group:getName())
+                local reactionTime =  math.random(10, 30)
+                log("ARM %s inbound at %s, defending; reaction time: %s", weaponId, group:getName(), reactionTime)
+                timer.scheduleFunction(function()
                 setRadarState({ group=group, enabled=false })
+                end, nil, timer.getTime() + reactionTime)
                 acknowledgedMissiles[weaponId] = true
                 return true
             end  
@@ -375,14 +377,14 @@ do
                 local detectedTargets = controller:getDetectedTargets()
                 for k,v in pairs (detectedTargets) do
 
+                    if v.object then
                     if v.object:getCategory() == Object.Category.WEAPON and isSEADMissile(v.object) then
                         table.insert(detectedARMs, { weapon = v.object, detectedBy = groupName})
-                    end
-
-                    -- if v.object:getCategory() == Object.Category.UNIT then
+                        else
                         table.insert(detectedUnits, { target = v.object, detectedBy = groupName })
-                    -- end
                 end 
+            end
+        end
             end
         end
 
@@ -669,10 +671,19 @@ do
         local controller = group and group:getController()
 
         if controller then
+            local sam = tacticalSAMs[index]
+
+            if sam.state == SAM_STATES.DEFENDING then
+                -- This site is suppressed.
+                -- It will be added back to the pool once the suppression effect has timed out.
+                mist.removeFunction(sam.timer)
+                return
+            end
+
             if table.getn(controller:getDetectedTargets()) == 0 then
                 setRadarState({ group=group, enabled=false })
-                tacticalSAMs[index].state = SAM_STATES.INACTIVE
-                mist.removeFunction(tacticalSAMs[index].timer)
+                sam.state = SAM_STATES.INACTIVE
+                mist.removeFunction(sam.timer)
             end
         end
     end
