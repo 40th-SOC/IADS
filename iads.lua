@@ -56,8 +56,8 @@ do
             ["F/A-18C"] = true,
         }
         ["ENABLE_SAM_DEFENSE"] = false,
-        -- Default low is 2 minutes, high is 20 minutes
-        ["SAM_DEFENSE_TIMEOUT_RANGE"] = {10, 30}
+        -- Default low is 4 minutes, high is 20 minutes
+        ["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
     }
 
     local THREAT_LEVELS = {
@@ -299,7 +299,7 @@ do
                 local reactionTime =  math.random(10, 30)
                 log("ARM %s inbound at %s, defending; reaction time: %s", weaponId, group:getName(), reactionTime)
                 timer.scheduleFunction(function()
-                setRadarState({ group=group, enabled=false })
+                    setRadarState({ group=group, enabled=false })
                 end, nil, timer.getTime() + reactionTime)
                 acknowledgedMissiles[weaponId] = true
                 return true
@@ -377,14 +377,15 @@ do
                 local detectedTargets = controller:getDetectedTargets()
                 for k,v in pairs (detectedTargets) do
 
+                    -- v.object can be undefined in some situations
                     if v.object then
-                    if v.object:getCategory() == Object.Category.WEAPON and isSEADMissile(v.object) then
-                        table.insert(detectedARMs, { weapon = v.object, detectedBy = groupName})
+                        if v.object:getCategory() == Object.Category.WEAPON and isSEADMissile(v.object) then
+                            table.insert(detectedARMs, { weapon = v.object, detectedBy = groupName})
                         else
-                        table.insert(detectedUnits, { target = v.object, detectedBy = groupName })
+                            table.insert(detectedUnits, { target = v.object, detectedBy = groupName })
+                        end
+                    end
                 end 
-            end
-        end
             end
         end
 
@@ -793,9 +794,9 @@ do
             end
 
             if engagmentZone then
-            if unitInsideZone(target, engagmentZone) then
-                activateNearbySAMs(target)
-            end
+                if unitInsideZone(target, engagmentZone) then
+                    activateNearbySAMs(target)
+                end
             else
                 activateNearbySAMs(target)
             end
