@@ -792,9 +792,15 @@ do
                 engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
             end
 
+            if engagmentZone then
             if unitInsideZone(target, engagmentZone) then
                 activateNearbySAMs(target)
             end
+            else
+                activateNearbySAMs(target)
+            end
+
+
         end
     end
 
