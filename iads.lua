@@ -322,7 +322,9 @@ do
                     
                     local suppressionTime = math.random(minTimeout, maxTimeout)
                     log("SAM %s disabled for %s seconds", groupName, suppressionTime)
-                    timer.scheduleFunction(function() 
+                    timer.scheduleFunction(function()
+                        -- Once set back to INACTIVE, this site goes back into the
+                        -- pool of radars that can be activated 
                         tacticalSAMs[i].state = SAM_STATES.INACTIVE
                         log("SAM defense for %s ended", groupName)
                     end, nil, timer.getTime() + suppressionTime)
@@ -894,6 +896,7 @@ do
             uniqueDetectedGroups = {}
             activeEngagments = {}
         end
+        acknowledgedMissiles = {}
         dispatchPatrolRoutes()
     end
 
