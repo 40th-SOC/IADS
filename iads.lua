@@ -592,7 +592,7 @@ do
     local function targetIsIgnored(target)
         if internalConfig.IGNORE_GROUPS then
             for i,v in ipairs(internalConfig.IGNORE_GROUPS) do
-                if v == target:getGroup():getName() then
+                if target and v == target:getGroup():getName() then
                     return true
                 end
             end
@@ -773,8 +773,21 @@ do
             if group then
                 for i,unit in ipairs(group:getUnits()) do
                     if unit:getFuel() < internalConfig.CAP_FLIGHT_BINGO_PERCENT then
-                        log("Unit %s is bingo. Group %s is RTB.", unit:getName(), group:getName())
                         local controller = group:getController()
+                        local tankerUnits = coalition.getServiceProviders(coalition.side.RED, coalition.service.TANKER)
+
+                        if table.getn(tankerUnits) > 0 then
+                            log("Unit %s is bingo. Group %s is refueling.", unit:getName(), group:getName())
+                            controller:pushTask({
+                                id = 'Refueling', 
+                                params = {} ,
+                            })
+                            -- Break the loop early. 
+                            -- Nothing else in the outer block will run.
+                            break
+                        end
+
+                        log("Unit %s is bingo. No tankers found, group %s is RTB.", unit:getName(), group:getName())
 
                         local homeAirbaseId = homeAirbaseLookup[group:getName()]
                         local base = Airbase.getByName(airbaseLookup[homeAirbaseId])
