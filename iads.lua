@@ -19,6 +19,7 @@ do
             ["55G6 EWR"] = true,			--Early Warning Radar
             ["1L13 EWR"] = true,			--Early Warning Radar
             ["Hawk sr"] = true,				--Hawk SAM Search Radar
+            ["Patriot str"] = true,         --Patriot str
         },
         ["TACTICAL_SAM_WHITELIST"] = {
             ["SNR_75V"] = true,                --SA2
@@ -296,11 +297,8 @@ do
             -- `deltaHeading` is in radians. .01 means the missile is heading right for the target
             if deltaHeading < 0.1 then
                 local group = unit:getGroup()
-                local reactionTime =  math.random(10, 30)
-                log("ARM %s inbound at %s, defending; reaction time: %s", weaponId, group:getName(), reactionTime)
-                timer.scheduleFunction(function()
-                    setRadarState({ group=group, enabled=false })
-                end, nil, timer.getTime() + reactionTime)
+                log("ARM %s inbound at %s, defending", weaponId, group:getName())
+                setRadarState({ group=group, enabled=false })
                 acknowledgedMissiles[weaponId] = true
                 return true
             end  
