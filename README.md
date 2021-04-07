@@ -130,6 +130,18 @@ iads.config = {
 	-- SAMs may still attack.
 	-- Set this to `nil` to dispatch fighters on helos at any altitude.
 	["HELO_DETECTION_FLOOR"] = 500,
+	-- Airframes are able to refuel from a tanker on bingo.
+	["REFUEL_CAPABLE_AIRFRAMES"] = {
+		["MiG-31"] = true,
+		["Su-33"] = true,
+		["M-2000C"] = true,
+		["JF-17"] = true,
+		["F-14B"] = true,
+		["F-15C"] = true,
+		["F-15E"] = true,
+		["F-16C_50"] = true,
+		["F/A-18C"] = true,
+	}
 }
 
 -- Call this AFTER setting configuration options
