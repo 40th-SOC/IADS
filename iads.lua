@@ -4,11 +4,11 @@ iads.util = {}
 
 do
     local configDefaults = {
-   ["ENABLE_TACTICAL_SAMS"] = true,
-   ["MAX_INTERCEPTOR_GROUPS"] = 2,
-   ["ENABLE_THREAT_MATCH"] = true,
-   ["REINFORCEMENT_INTERVAL"] = 1500,
-   ["RESPAWN_INTERCEPTORS"] = true,
+        ["ENABLE_TACTICAL_SAMS"] = true,
+        ["MAX_INTERCEPTOR_GROUPS"] = 2,
+        ["ENABLE_THREAT_MATCH"] = true,
+        ["REINFORCEMENT_INTERVAL"] = 1500,
+        ["RESPAWN_INTERCEPTORS"] = true,
         ["MAX_INTERCEPTOR_GROUPS_FLAG"] = nil,
         ["VALID_SEARCH_RADARS"] = {
             ["p-19 s-125 sr"] = true,		--SA-3 Search Radar
@@ -42,7 +42,8 @@ do
         ["SAMS_IGNORE_BORDERS"] = false,
         ["MISSILE_ENGAGMENT_ZONE"] = nil,
         ["FIGHTER_ENGAGMENT_ZONE"] = nil,
-	    ["USE_AWACS_RADAR"] = true,
+        ["USE_AWACS_RADAR"] = true,
+        ["HELO_DETECTION_FLOOR"] = nil,
     }
 
     local THREAT_LEVELS = {
@@ -566,6 +567,15 @@ do
         return mist.pointInPolygon(target:getPoint(), points)
     end
 
+    -- https://forums.eagle.ru/topic/188177-moose-get-altitude-over-the-ground-instead-of-over-the-sea/?do=findComment&comment=3624894
+    local function getAGL(unit)
+        local pos = unit:getPoint()
+        local aglMeters = pos.y - land.getHeight({x=pos.x, y = pos.z})
+        local aglFeet = mist.utils.metersToFeet(aglMeters)
+
+        return aglFeet
+    end
+
     local function isValidTarget(target)
         if not target then
             return false
@@ -582,11 +592,20 @@ do
             engagmentZone = internalConfig.FIGHTER_ENGAGMENT_ZONE
         end
 
+        local isValid = true
+
         if engagmentZone then
-            return unitInsideZone(target, engagmentZone)
+            isValid = unitInsideZone(target, engagmentZone)
         end
 
-        return true
+        if internalConfig.HELO_DETECTION_FLOOR and target:getGroup():getCategory() == Group.Category.HELICOPTER then
+            local agl = getAGL(target)
+            if  agl < internalConfig.HELO_DETECTION_FLOOR then
+                isValid = false
+            end
+        end
+
+        return isValid
     end
 
     local function targetIsIgnored(target)
