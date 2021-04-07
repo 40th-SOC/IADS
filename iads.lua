@@ -43,6 +43,17 @@ do
         ["MISSILE_ENGAGMENT_ZONE"] = nil,
         ["FIGHTER_ENGAGMENT_ZONE"] = nil,
 	    ["USE_AWACS_RADAR"] = true,
+        ["REFUEL_CAPABLE_AIRFRAMES"] = {
+            ["MiG-31"] = true, 
+            ["Su-33"] = true,
+            ["M-2000C"] = true,
+            ["JF-17"] = true,
+            ["F-14B"] = true,
+            ["F-15C"] = true,
+            ["F-15E"] = true,
+            ["F-16C_50"] = true,
+            ["F/A-18C"] = true,
+        }
     }
 
     local THREAT_LEVELS = {
@@ -563,6 +574,10 @@ do
     end
 
     local function unitInsideZone(target, points)
+        if not target then
+            return false
+        end
+
         return mist.pointInPolygon(target:getPoint(), points)
     end
 
@@ -777,14 +792,20 @@ do
                         local tankerUnits = coalition.getServiceProviders(coalition.side.RED, coalition.service.TANKER)
 
                         if table.getn(tankerUnits) > 0 then
-                            log("Unit %s is bingo. Group %s is refueling.", unit:getName(), group:getName())
-                            controller:pushTask({
-                                id = 'Refueling', 
-                                params = {} ,
-                            })
-                            -- Break the loop early. 
-                            -- Nothing else in the outer block will run.
-                            break
+                            -- Only refuel if the airframe is capable of in-flight refueling
+                            local isRefuelCapable = internalConfig.REFUEL_CAPABLE_AIRFRAMES[unit:getTypeName()] == true
+                            if isRefuelCapable then
+                                log("Unit %s is bingo. Group %s is refueling.", unit:getName(), group:getName())
+                                controller:pushTask({
+                                    id = 'Refueling', 
+                                    params = {} ,
+                                })
+                                -- Break the loop early. 
+                                -- Nothing else in the outer block will run.
+                                break
+                            else
+                                log("Tanker found, but group %s is not capable of refueling", group:getName())
+                            end
                         end
 
                         log("Unit %s is bingo. No tankers found, group %s is RTB.", unit:getName(), group:getName())

@@ -126,6 +126,18 @@ iads.config = {
     ["FIGHTER_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("FighterEngagmentZone"),
     -- Use any AWACS units found in the mission as a search radar
 	["USE_AWACS_RADAR"] = true,
+	-- Airframes are able to refuel from a tanker on bingo.
+	["REFUEL_CAPABLE_AIRFRAMES"] = {
+		["MiG-31"] = true,
+		["Su-33"] = true,
+		["M-2000C"] = true,
+		["JF-17"] = true,
+		["F-14B"] = true,
+		["F-15C"] = true,
+		["F-15E"] = true,
+		["F-16C_50"] = true,
+		["F/A-18C"] = true,
+	}
 }
 
 -- Call this AFTER setting configuration options
