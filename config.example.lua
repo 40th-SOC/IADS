@@ -101,6 +101,12 @@ iads.config = {
 		["F-16C_50"] = true,
 		["F/A-18C"] = true,
 	}
+	-- When enabled, SAM sites and search radars will try to defend from incoming anti-radiation missiles.
+	-- Sites will stop emitting for a given period of time. 
+	-- This time period is set by the SAM_DEFENSE_TIMEOUT_RANGE parameter.
+	["ENABLE_SAM_DEFENSE"] = false,
+	-- Default low is 4 minutes, high is 20 minutes
+	["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
 }
 
 -- Call this AFTER setting configuration options

@@ -62,14 +62,15 @@ iads.config = {
     -- Search radars that the IADS can use as EWR sites.
     -- If these search radars are part of a Tactical SAM group, they will NOT be able to act as EWR sites.
     ["VALID_SEARCH_RADARS"] = {
-        ["p-19 s-125 sr"] = true,	--SA-3 Search Radar
-        ["Kub 1S91 str"] = true,	--SA-6 Search and Track Radar
+        ["p-19 s-125 sr"] = true,	    --SA-3 Search Radar
+        ["Kub 1S91 str"] = true,	    --SA-6 Search and Track Radar
         ["S-300PS 64H6E sr"] = true,	--SA-10 Search Radar
         ["S-300PS 40B6MD sr"] = true,	--SA-10 Search Radar
         ["SA-11 Buk SR 9S18M1"] = true,	--SA-11 Search Radar
-        ["55G6 EWR"] = true,		--Early Warning Radar
-        ["1L13 EWR"] = true,		--Early Warning Radar
-        ["Hawk sr"] = true,		--Hawk SAM Search Radar
+        ["55G6 EWR"] = true,		    --Early Warning Radar
+        ["1L13 EWR"] = true,		    --Early Warning Radar
+        ["Hawk sr"] = true,		        --Hawk SAM Search Radar
+        ["Patriot str"] = true,         --Patriot str
     },
     -- Tactical SAM batteries.
     -- Groups with these units will have their AI shut off until an EWR site instructs them to illuminate.
@@ -141,7 +142,13 @@ iads.config = {
 		["F-15E"] = true,
 		["F-16C_50"] = true,
 		["F/A-18C"] = true,
-	}
+	},
+	-- When enabled, SAM sites and search radars will try to defend from incoming anti-radiation missiles.
+	-- Sites will stop emitting for a given period of time.
+	-- This time period is set by the SAM_DEFENSE_TIMEOUT_RANGE parameter.
+	["ENABLE_SAM_DEFENSE"] = false,
+	-- Default low is 4 minutes, high is 20 minutes
+	["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200},
 }
 
 -- Call this AFTER setting configuration options

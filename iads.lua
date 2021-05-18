@@ -318,8 +318,8 @@ do
         return false
     end
 
-    local function defendTacticalSAMs(weapon)
-        for i,data in ipairs(tacticalSAMs) do
+    local function defendEmitters(collection, weapon)
+        for i,data in ipairs(collection) do
             -- Guarding against a unit being dead
             local unit = Unit.getByName(data.name)
             if unit then
@@ -327,7 +327,7 @@ do
 
                 if didDefend then
                     local groupName = data.unit:getGroup():getName()
-                    tacticalSAMs[i].state = SAM_STATES.DEFENDING
+                    collection[i].state = SAM_STATES.DEFENDING
                     local minTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[1]
                     local maxTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[2]
                     
@@ -336,28 +336,13 @@ do
                     timer.scheduleFunction(function()
                         -- Once set back to INACTIVE, this site goes back into the
                         -- pool of radars that can be activated 
-                        tacticalSAMs[i].state = SAM_STATES.INACTIVE
+                        collection[i].state = SAM_STATES.INACTIVE
                         log("SAM defense for %s ended", groupName)
                     end, nil, timer.getTime() + suppressionTime)
                 end
             end
         end
     end
-
-    local function defendSearchRadars(weapon)
-        for i,data in ipairs(searchRadars) do
-            -- Guarding against a unit being dead
-            local unit = Unit.getByName(data.name)
-            if unit then
-                local didDefend = defendSAMGroup(data.avgPoint, unit, weapon)
-                
-                if didDefend then
-                    searchRadars[i].state = SAM_STATES.DEFENDING
-                end
-            end
-        end
-    end
-
 
     local function defendSAMSites(detectedARMs)
         for i,threat in ipairs(detectedARMs) do
@@ -368,8 +353,8 @@ do
                 -- TODO: combine this into a single table
                 -- Note: time-complexity here is (number ARMs * number tactical SAMS) + (number ARMS * search radars).
                 -- Once the ARMs start homing in and sites start to defend, time-complexity goes down.
-                defendTacticalSAMs(weapon)
-                defendSearchRadars(weapon)
+                defendEmitters(tacticalSAMs, weapon)
+                defendEmitters(searchRadars, weapon)
             end
         end
     end
