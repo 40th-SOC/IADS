@@ -353,7 +353,7 @@ do
             local weapon = threat.weapon
             
             if not acknowledgedMissiles[weapon:getName()] then
-                log("ARM %s detected by %s", weapon:getName(), threat.detectedBy)
+                -- log("ARM %s detected by %s", weapon:getName(), threat.detectedBy)
                 -- TODO: combine this into a single table
                 -- Note: time-complexity here is (number ARMs * number tactical SAMS) + (number ARMS * search radars).
                 -- Once the ARMs start homing in and sites start to defend, time-complexity goes down.
