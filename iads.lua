@@ -19,6 +19,7 @@ do
             ["55G6 EWR"] = true,			--Early Warning Radar
             ["1L13 EWR"] = true,			--Early Warning Radar
             ["Hawk sr"] = true,				--Hawk SAM Search Radar
+            ["Patriot str"] = true,         --Patriot str
         },
         ["TACTICAL_SAM_WHITELIST"] = {
             ["SNR_75V"] = true,                --SA2
@@ -54,7 +55,10 @@ do
             ["F-15E"] = true,
             ["F-16C_50"] = true,
             ["F/A-18C"] = true,
-        }
+        },
+        ["ENABLE_SAM_DEFENSE"] = false,
+        -- Default low is 4 minutes, high is 20 minutes
+        ["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
     }
 
     local THREAT_LEVELS = {
@@ -85,6 +89,7 @@ do
     local SAM_STATES = {
         ["ACTIVE"] = 1,
         ["INACTIVE"] = 2,
+        ["DEFENDING"] = 3,
     }
 
     -- State
@@ -107,6 +112,10 @@ do
     local homeAirbaseLookup = {}
 
     local airbaseLookup = {}
+
+    -- Stores weapon IDs to prevent defending from the sam missile multiple times
+    -- { [objId]: true }
+    local acknowledgedMissiles = {}
 
     local function log(tmpl, ...)
         local txt = string.format("[IADS] " .. tmpl, ...)
@@ -169,6 +178,28 @@ do
         return false
     end
 
+    local function getAvgPointForGroup(group)
+            -- Store average positions to enable defensive actions
+        local units = group:getUnits()
+        local points = {}
+        for i,u in ipairs(units) do
+            table.insert(points, u:getPoint())
+        end
+
+       return mist.getAvgPoint(points)
+    end
+
+    local function addSearchRadar(unit)
+        local record = { 
+            unit=unit, 
+            state=SAM_STATES.ACTIVE, 
+            name=unit:getName(), 
+            avgPoint=getAvgPointForGroup(unit:getGroup()) ,
+        }
+
+        table.insert(searchRadars, record)
+    end
+
     local function buildSAMDatabase()
         local allGroups = coalition.getGroups(coalition.side.RED, Group.Category.GROUND)
 
@@ -176,14 +207,14 @@ do
             if not isIgnoredGroup(group:getName()) then
                 for i, unit in pairs(group:getUnits()) do
                     if internalConfig.VALID_SEARCH_RADARS[unit:getTypeName()] == true then
-                        table.insert(searchRadars, unit:getName())
+                        addSearchRadar(unit)
                     end
     
                     if internalConfig.TACTICAL_SAM_WHITELIST[unit:getTypeName()] == true  then
                         if internalConfig.ENABLE_TACTICAL_SAMS then
-                            setRadarState({ group=unit:getGroup(), enabled=false })
+                            setRadarState({ group=group, enabled=false })
                         end
-                        table.insert(tacticalSAMs, { unit=unit, state=SAM_STATES.INACTIVE, name=unit:getName() })
+                        table.insert(tacticalSAMs, { unit=unit, state=SAM_STATES.INACTIVE, name=unit:getName(), avgPoint=getAvgPointForGroup(group) })
                         break
                     end
                 end
@@ -206,7 +237,7 @@ do
             -- Ensure no duplicates by checking for the airplane type.
             if unit:getGroup():getCategory() == Unit.Category.AIRPLANE then
                 log("Found AWACS %s; adding as search radar", unit:getName())
-                table.insert(searchRadars, unit:getName())
+                addSearchRadar(unit)
             end
         end
     end
@@ -215,7 +246,8 @@ do
         for i,c in ipairs(env.mission.coalition.red.country) do
             if (c.plane) then
                 for i,group in ipairs(c.plane.group) do
-                    if (group.task == "CAP" or group.task == "Intercept") and not group.lateActivation then
+                    local isPlayer = group.units[1].skill == "Client" or group.units[1].skill == "Player"
+                    if (group.task == "CAP" or group.task == "Intercept") and not isPlayer and not group.lateActivation then
                         local groupName =  env.getValueDictByKey(group.name)
                         local gameGroup = Group.getByName(groupName)
 
@@ -241,23 +273,119 @@ do
         end
     end
 
+    -- Stolen from the mist development branch:
+    -- https://github.com/mrSkortch/MissionScriptingTools/compare/development
+    local function getHeadingPoints(point1, point2, north) 
+        if north then 
+            return mist.utils.getDir(mist.vec.sub(mist.utils.makeVec3(point2), mist.utils.makeVec3(point1)), (mist.utils.makeVec3(point1)))
+        else
+            return mist.utils.getDir(mist.vec.sub(mist.utils.makeVec3(point2), mist.utils.makeVec3(point1))) 
+        end
+    end
+
+    local function isSEADMissile(weapon)
+        -- local missile = weapon:getTypeName()
+        local description = weapon:getDesc()
+        return description.guidance == Weapon.GuidanceType.RADAR_PASSIVE
+    end
+
+    local function defendSAMGroup(groupPoint, unit, weapon)
+        local weaponId = weapon:getName()
+
+        if acknowledgedMissiles[weaponId] then
+            return false
+        end
+
+        local dist = mist.utils.metersToNM(mist.utils.get3DDist(weapon:getPoint(), groupPoint))
+
+        if dist < 30 then
+            -- The direction the missile is travelling
+            local weaponHeading = mist.getHeading(weapon)
+            -- The heading that the missile would need to be traveling to impact the target
+            local interceptHeading = getHeadingPoints(weapon:getPoint(), groupPoint, true)
+    
+            local deltaHeading = math.abs(weaponHeading - interceptHeading) 
+            -- `deltaHeading` is in radians. .01 means the missile is heading right for the target
+            if deltaHeading < 0.1 then
+                local group = unit:getGroup()
+                log("ARM %s inbound at %s, defending", weaponId, group:getName())
+                setRadarState({ group=group, enabled=false })
+                acknowledgedMissiles[weaponId] = true
+                return true
+            end  
+        end
+
+        return false
+    end
+
+    local function defendEmitters(collection, weapon)
+        for i,data in ipairs(collection) do
+            -- Guarding against a unit being dead
+            local unit = Unit.getByName(data.name)
+            if unit then
+                local didDefend = defendSAMGroup(data.avgPoint, unit, weapon)
+
+                if didDefend then
+                    local groupName = data.unit:getGroup():getName()
+                    collection[i].state = SAM_STATES.DEFENDING
+                    local minTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[1]
+                    local maxTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[2]
+                    
+                    local suppressionTime = math.random(minTimeout, maxTimeout)
+                    log("SAM %s disabled for %s seconds", groupName, suppressionTime)
+                    timer.scheduleFunction(function()
+                        -- Once set back to INACTIVE, this site goes back into the
+                        -- pool of radars that can be activated 
+                        collection[i].state = SAM_STATES.INACTIVE
+                        log("SAM defense for %s ended", groupName)
+                    end, nil, timer.getTime() + suppressionTime)
+                end
+            end
+        end
+    end
+
+    local function defendSAMSites(detectedARMs)
+        for i,threat in ipairs(detectedARMs) do
+            local weapon = threat.weapon
+            
+            if not acknowledgedMissiles[weapon:getName()] then
+                -- log("ARM %s detected by %s", weapon:getName(), threat.detectedBy)
+                -- TODO: combine this into a single table
+                -- Note: time-complexity here is (number ARMs * number tactical SAMS) + (number ARMS * search radars).
+                -- Once the ARMs start homing in and sites start to defend, time-complexity goes down.
+                defendEmitters(tacticalSAMs, weapon)
+                defendEmitters(searchRadars, weapon)
+            end
+        end
+    end
+
     local function findDetectedTargets()
         local detectedUnits = {}
+        local detectedARMs = {}
 
-        for i, radarName in ipairs(searchRadars) do
-            local searchRadar = Unit.getByName(radarName)
+        for i, radar in ipairs(searchRadars) do
+            local searchRadar = Unit.getByName(radar.name)
 
             if searchRadar ~= nil then
                 local group = searchRadar:getGroup()
+                local groupName = group:getName()
                 local controller = group:getController()
                 local detectedTargets = controller:getDetectedTargets()
                 for k,v in pairs (detectedTargets) do
-                    table.insert(detectedUnits, { target = v.object, detectedBy = group:getName() })
+
+                    -- v.object can be undefined in some situations
+                    if v.object then
+                        if v.object:getCategory() == Object.Category.WEAPON and isSEADMissile(v.object) then
+                            table.insert(detectedARMs, { weapon = v.object, detectedBy = groupName})
+                        else
+                            table.insert(detectedUnits, { target = v.object, detectedBy = groupName })
+                        end
+                    end
                 end 
             end
         end
 
-        return detectedUnits
+        return detectedUnits, detectedARMs
     end
 
     local function findAvailableInterceptors(targetPos)
@@ -540,10 +668,19 @@ do
         local controller = group and group:getController()
 
         if controller then
+            local sam = tacticalSAMs[index]
+
+            if sam.state == SAM_STATES.DEFENDING then
+                -- This site is suppressed.
+                -- It will be added back to the pool once the suppression effect has timed out.
+                mist.removeFunction(sam.timer)
+                return
+            end
+
             if table.getn(controller:getDetectedTargets()) == 0 then
                 setRadarState({ group=group, enabled=false })
-                tacticalSAMs[index].state = SAM_STATES.INACTIVE
-                mist.removeFunction(tacticalSAMs[index].timer)
+                sam.state = SAM_STATES.INACTIVE
+                mist.removeFunction(sam.timer)
             end
         end
     end
@@ -626,7 +763,7 @@ do
     local function targetIsIgnored(target)
         if internalConfig.IGNORE_GROUPS then
             for i,v in ipairs(internalConfig.IGNORE_GROUPS) do
-                if target and v == target:getGroup():getName() then
+                if target.getGroup and v == target:getGroup():getName() then
                     return true
                 end
             end
@@ -652,14 +789,24 @@ do
                 engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
             end
 
-            if unitInsideZone(target, engagmentZone) then
+            if engagmentZone then
+                if unitInsideZone(target, engagmentZone) then
+                    activateNearbySAMs(target)
+                end
+            else
                 activateNearbySAMs(target)
             end
+
+
         end
     end
 
     local function runIADS()
-        local allTargets = findDetectedTargets()
+        local allTargets, antiRadiationMissiles = findDetectedTargets()
+
+        if internalConfig.ENABLE_SAM_DEFENSE then
+            defendSAMSites(antiRadiationMissiles)
+        end
 
         for i,v in ipairs(allTargets) do
             local target = v.target
@@ -745,6 +892,7 @@ do
             uniqueDetectedGroups = {}
             activeEngagments = {}
         end
+        acknowledgedMissiles = {}
         dispatchPatrolRoutes()
     end
 
