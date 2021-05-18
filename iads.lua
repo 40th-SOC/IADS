@@ -55,7 +55,7 @@ do
             ["F-15E"] = true,
             ["F-16C_50"] = true,
             ["F/A-18C"] = true,
-        }
+        },
         ["ENABLE_SAM_DEFENSE"] = false,
         -- Default low is 4 minutes, high is 20 minutes
         ["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
@@ -189,6 +189,17 @@ do
        return mist.getAvgPoint(points)
     end
 
+    local function addSearchRadar(unit)
+        local record = { 
+            unit=unit, 
+            state=SAM_STATES.ACTIVE, 
+            name=unit:getName(), 
+            avgPoint=getAvgPointForGroup(unit:getGroup()) ,
+        }
+
+        table.insert(searchRadars, record)
+    end
+
     local function buildSAMDatabase()
         local allGroups = coalition.getGroups(coalition.side.RED, Group.Category.GROUND)
 
@@ -196,7 +207,7 @@ do
             if not isIgnoredGroup(group:getName()) then
                 for i, unit in pairs(group:getUnits()) do
                     if internalConfig.VALID_SEARCH_RADARS[unit:getTypeName()] == true then
-                        table.insert(searchRadars, { unit=unit, state=SAM_STATES.ACTIVE, name=unit:getName(), avgPoint=getAvgPointForGroup(group) })
+                        addSearchRadar(unit)
                     end
     
                     if internalConfig.TACTICAL_SAM_WHITELIST[unit:getTypeName()] == true  then
@@ -226,7 +237,7 @@ do
             -- Ensure no duplicates by checking for the airplane type.
             if unit:getGroup():getCategory() == Unit.Category.AIRPLANE then
                 log("Found AWACS %s; adding as search radar", unit:getName())
-                table.insert(searchRadars, unit:getName())
+                addSearchRadar(unit)
             end
         end
     end
