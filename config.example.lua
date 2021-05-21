@@ -106,7 +106,16 @@ iads.config = {
 	-- This time period is set by the SAM_DEFENSE_TIMEOUT_RANGE parameter.
 	["ENABLE_SAM_DEFENSE"] = false,
 	-- Default low is 4 minutes, high is 20 minutes
-	["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
+	["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200},
+	-- These types of radars will not try to defend themselves from incoming ARMs.
+	-- This allows advanced SAM systems to target ARM missiles (ie Patriot and SA10).
+	-- Only applies if ENABLE_SAM_DEFENSE is set to true.
+	["SAM_SUPPRESSION_EXEMPT_RADARS"] = {
+		["S-300PS 64H6E sr"] = true,	--SA-10 Search Radar
+		["S-300PS 40B6MD sr"] = true,	--SA-10 Search Radar
+		["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
+		["Patriot str"] = true,         --Patriot str
+	},
 }
 
 -- Call this AFTER setting configuration options

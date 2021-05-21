@@ -58,7 +58,16 @@ do
         },
         ["ENABLE_SAM_DEFENSE"] = false,
         -- Default low is 4 minutes, high is 20 minutes
-        ["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200}
+        ["SAM_DEFENSE_TIMEOUT_RANGE"] = {240, 1200},
+        -- These types of radars will not try to defend themselves from incoming ARMs.
+        -- This allows advanced SAM systems to target ARM missiles (ie Patriot and SA10).
+        -- Only applies if ENABLE_SAM_DEFENSE is set to true.
+        ["SAM_SUPPRESSION_EXEMPT_RADARS"] = {
+            ["S-300PS 64H6E sr"] = true,	--SA-10 Search Radar
+            ["S-300PS 40B6MD sr"] = true,	--SA-10 Search Radar
+            ["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
+            ["Patriot str"] = true,         --Patriot str
+        } 
     }
 
     local THREAT_LEVELS = {
@@ -288,10 +297,18 @@ do
         return description.guidance == Weapon.GuidanceType.RADAR_PASSIVE
     end
 
+    local function ackMissile(weaponName)
+        acknowledgedMissiles[weaponName] = true
+    end
+
+    local function isAckedMissile(weaponName)
+        return acknowledgedMissiles[weaponName] ~= nil
+    end
+
     local function defendSAMGroup(groupPoint, unit, weapon)
         local weaponId = weapon:getName()
 
-        if acknowledgedMissiles[weaponId] then
+        if isAckedMissile(weaponName) then
             return false
         end
 
@@ -309,7 +326,7 @@ do
                 local group = unit:getGroup()
                 log("ARM %s inbound at %s, defending", weaponId, group:getName())
                 setRadarState({ group=group, enabled=false })
-                acknowledgedMissiles[weaponId] = true
+                ackMissile(weaponId)
                 return true
             end  
         end
@@ -322,8 +339,26 @@ do
             -- Guarding against a unit being dead
             local unit = Unit.getByName(data.name)
             if unit then
-                local didDefend = defendSAMGroup(data.avgPoint, unit, weapon)
 
+                local shouldDefend = true
+                if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS then
+                    local typeName = unit:getTypeName()
+                    -- Certain SAM systems are better served by staying online to try and shoot down
+                    -- anti-radiation missiles. Patriots and SA-10s, for example, have no problem knocking down
+                    -- pre-briefed HARMs.
+                    if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS[typeName] then
+                        log("Skipping ARM defense for %s", unit:getGroup():getName())
+                        ackMissile(weapon:getName())
+                        shouldDefend = false
+                    end
+                end
+
+                local didDefend = false
+                
+                if shouldDefend then
+                    didDefend = defendSAMGroup(data.avgPoint, unit, weapon)
+                end
+         
                 if didDefend then
                     local groupName = data.unit:getGroup():getName()
                     collection[i].state = SAM_STATES.DEFENDING
@@ -347,7 +382,7 @@ do
         for i,threat in ipairs(detectedARMs) do
             local weapon = threat.weapon
             
-            if not acknowledgedMissiles[weapon:getName()] then
+            if not isAckedMissile(weapon:getName()) then
                 -- log("ARM %s detected by %s", weapon:getName(), threat.detectedBy)
                 -- TODO: combine this into a single table
                 -- Note: time-complexity here is (number ARMs * number tactical SAMS) + (number ARMS * search radars).
@@ -1007,7 +1042,13 @@ do
         end
     end
 
-    function iads.init() 
+    function iads.init()
+        -- This will ensure the server does not pause on errors.
+        -- Warning: you need to check your DCS logs if you do not have this variable set.
+        if not __DEV_ENV == true then
+            env.setErrorMessageBoxEnabled(false)
+        end
+
         internalConfig = buildConfig()
 
         -- log(mist.utils.tableShow(internalConfig.MISSILE_ENGAGMENT_ZONE))
