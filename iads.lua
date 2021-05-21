@@ -161,8 +161,7 @@ do
             return
         end
     
-        local alarmState = params.enabled and AI.Option.Ground.val.ALARM_STATE.RED or AI.Option.Ground.val.ALARM_STATE.GREEN
-        params.group:getController():setOption(AI.Option.Ground.id.ALARM_STATE, alarmState)
+        params.group:enableEmission(params.enabled)
     
         log("%s radar for %s", params.enabled and 'Enabling' or 'Disabling', params.group:getName())
     end
