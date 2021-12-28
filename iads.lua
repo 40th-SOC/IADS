@@ -339,7 +339,6 @@ do
             -- Guarding against a unit being dead
             local unit = Unit.getByName(data.name)
             if unit then
-
                 local shouldDefend = true
                 if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS then
                     local typeName = unit:getTypeName()
@@ -347,7 +346,7 @@ do
                     -- anti-radiation missiles. Patriots and SA-10s, for example, have no problem knocking down
                     -- pre-briefed HARMs.
                     if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS[typeName] then
-                        log("Skipping ARM defense for %s", unit:getGroup():getName())
+                        log("Radar %s in group %s is suppression exempt", typeName, unit:getGroup():getName())
                         ackMissile(weapon:getName())
                         shouldDefend = false
                     end
@@ -691,7 +690,7 @@ do
         if  internalConfig.PATROL_ROUTES and iadsHasCapacity() then
             backfillCAPRoute(group)
         else
-            log("Skipping patrol backfill; IADS at capacity")
+            log("Skipping patrol backfill; No routes or IADS at capacity")
         end
 
         return true
