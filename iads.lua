@@ -20,6 +20,7 @@ do
             ["1L13 EWR"] = true,			--Early Warning Radar
             ["Hawk sr"] = true,				--Hawk SAM Search Radar
             ["Patriot str"] = true,         --Patriot str
+;            ["RLS_19J6"] = true             --SA-5 SR
         },
         ["TACTICAL_SAM_WHITELIST"] = {
             ["SNR_75V"] = true,                --SA2
@@ -37,7 +38,7 @@ do
             ["JF-17"] = true,
         },
         ["IGNORE_GROUPS"] = nil,
-        ["RMAX_MODIFIER"] = 0.8,
+        ["RMAX_MODIFIER"] = 1,
         ["IGNORE_SAM_GROUPS"] = nil,
         ["AIRSPACE_ZONE_POINTS"] = nil,
         ["SAMS_IGNORE_BORDERS"] = false,
@@ -204,7 +205,6 @@ do
             name=unit:getName(), 
             avgPoint=getAvgPointForGroup(unit:getGroup()) ,
         }
-
         table.insert(searchRadars, record)
     end
 
@@ -447,6 +447,10 @@ do
 
             if a.airborne == true and b.airborne == false then
                 return true
+            end
+
+            if a.airborne == false and b.airborne == true then
+                return false
             end
 
             return a.distance < b.distance
