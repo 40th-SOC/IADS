@@ -116,6 +116,10 @@ iads.config = {
 		["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
 		["Patriot str"] = true,         --Patriot str
 	},
+	-- A list of non-continguous polygons that will be used as engagement zones.
+	["FIGHTER_ENGAGEMENT_ZONES"] = {
+		["Northern AO"] = iads.util.zoneFromLineDrawing("Author", "NorthernAO"),
+	}, 
 }
 
 -- Call this AFTER setting configuration options

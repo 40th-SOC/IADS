@@ -20,7 +20,7 @@ do
             ["1L13 EWR"] = true,			--Early Warning Radar
             ["Hawk sr"] = true,				--Hawk SAM Search Radar
             ["Patriot str"] = true,         --Patriot str
-;            ["RLS_19J6"] = true             --SA-5 SR
+            ["RLS_19J6"] = true,            --SA-5 SR
         },
         ["TACTICAL_SAM_WHITELIST"] = {
             ["SNR_75V"] = true,                --SA2
@@ -68,7 +68,9 @@ do
             ["S-300PS 40B6MD sr"] = true,	--SA-10 Search Radar
             ["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
             ["Patriot str"] = true,         --Patriot str
-        } 
+        },
+        -- A list of non-continguous polygons that will be used as engagement zones.
+        ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
     }
 
     local THREAT_LEVELS = {
@@ -135,6 +137,10 @@ do
         end
 
         env.info(txt)
+    end
+
+    local function debugTable(tbl)
+        log(mist.utils.tableShow(tbl))
     end
 
     local function buildConfig()
@@ -317,6 +323,7 @@ do
         if dist < 30 then
             -- The direction the missile is travelling
             local weaponHeading = mist.getHeading(weapon)
+            log("are we doing this block?")
             -- The heading that the missile would need to be traveling to impact the target
             local interceptHeading = getHeadingPoints(weapon:getPoint(), groupPoint, true)
     
@@ -428,6 +435,7 @@ do
             local group = Group.getByName(groupName)
 
             if group then
+                log("Found group %s", groupName)
                 -- Only select groups that are not engaged
                 if not activeEngagments[group:getName()] then
                     local units = group:getUnits()
@@ -733,6 +741,7 @@ do
                 if sensors then
                     local trackRadar = sensors[1]
                     local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
+                    log("sensors")
                     local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
     
                     -- Wait until the target is closer. 
@@ -765,6 +774,96 @@ do
         return aglFeet
     end
 
+    -- [2] = table: 000001ED9A57BEE0     {
+    --     [2]["y"] = 181518.01946927,
+    --     [2]["x"] = -18453.772774141,
+    --     },
+    -- [3] = table: 000001ED9A57B6C0     {
+    --     [3]["y"] = 218090.04187621,
+    --     [3]["x"] = 65091.489421514,
+    --     },
+    -- [1] = table: 000001ED9A57B1C0     {
+    --     [1]["y"] = 0,
+    --     [1]["x"] = 0,
+    --     },
+    -- [4] = table: 000001ED9A57BFD0     {
+    --     [4]["y"] = -2348.6619894361,
+    --     [4]["x"] = 121459.37716798,
+    --     },
+    -- [5] = table: 000001ED9A57B210     {
+    --     [5]["y"] = -52677.133191638,
+    --     [5]["x"] = 44289.054657938,
+    --     },
+    -- }
+
+    local p = {
+        ["x"] = -37206.994323492,
+        ["y"] = 735615.40723291,
+    }
+
+    local t = {
+        [2] = {
+            ["y"] = 181518.01946927,
+            ["x"] = -18453.772774141,
+        },
+        [3] = {
+            ["y"] = 218090.04187621,
+            ["x"] = 65091.489421514,
+        },
+        [1] = {
+            ["y"] = 0,
+            ["x"] = 0,
+        },
+        [4] = {
+            ["y"] = -2348.6619894361,
+            ["x"] = 121459.37716798,
+        }, 
+        [5] = {
+            ["y"] = -52677.133191638,
+            ["x"] = 44289.054657938,
+        }
+    }
+    
+
+    function pointInPolygon(point, polygon)
+        -- local inside = false
+        -- local len = #polygon
+        
+        -- log("count: %s", len)
+        -- local j = len
+
+        -- for i=1,len do
+        --     log("i: %s, j: %s", i, j)
+        --     if (polygon[i].y < testPoint.y and polygon[j].y >= testPoint.y or polygon[j].y < testPoint.y and polygon[i].y >= testPoint.y) then
+        --         log("first level")
+        --         if (polygon[i].x + (testPoint.y - polygon[i].y) / (polygon[j].y - polygon[i].y) * (polygon[j].x - polygon[i].x) < testPoint.x) then
+        --             -- Flip the flag?
+        --             log("hitting something")
+        --             inside = not inside
+        --         end
+        --     end
+        --     j = i
+        -- end
+
+        -- return inside
+
+        local inside = false
+        local j = #polygon
+        for i = 1, #polygon do
+            if (polygon[i].y < point.y and polygon[j].y >= point.y or polygon[j].y < point.y and polygon[i].y >= point.y) then
+                log("first level")
+                if (polygon[i].x + ( point.y - polygon[i].y ) / (polygon[j].y - polygon[i].y) * (polygon[j].x - polygon[i].x) < point.x) then
+                    log("hitting something")
+                    inside = not oddNodes;
+                end
+            end
+            j = i;
+        end
+        return oddNodes 
+    end
+
+    -- print(pointInPolygon(p, t))
+
     local function isValidTarget(target)
         if not target then
             return false
@@ -774,17 +873,23 @@ do
             return false
         end
 
-        -- Could be nil, which would mean engage everything
-        local engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
-
-        if internalConfig.FIGHTER_ENGAGMENT_ZONE then
-            engagmentZone = internalConfig.FIGHTER_ENGAGMENT_ZONE
-        end
-
         local isValid = true
 
-        if engagmentZone then
-            isValid = unitInsideZone(target, engagmentZone)
+        if internalConfig.FIGHTER_ENGAGEMENT_ZONES then
+            for zone,points in pairs(internalConfig.FIGHTER_ENGAGEMENT_ZONES) do
+
+                -- debugTable(target:getPoint())
+                
+
+                local p = { x = target:getPoint().x, y = target:getPoint().z }
+                isValid = pointInPolygon(p, points)
+                log("inside: %s", isValid and "true" or "false")
+
+                if isValid then
+                    -- No need to check other zones
+                    break
+                end
+            end
         end
 
         if internalConfig.HELO_DETECTION_FLOOR and target:getGroup():getCategory() == Group.Category.HELICOPTER then
@@ -848,7 +953,7 @@ do
         for i,v in ipairs(allTargets) do
             local target = v.target
 
-            possiblyEngageWithSAMs(target)
+            -- possiblyEngageWithSAMs(target)
 
             if isValidTarget(target) then
 
@@ -1104,12 +1209,33 @@ do
         local points = {}
         local route = mist.getGroupRoute(groupName, true)
 
+        if not route then
+            log("No group found for border route: %s", groupName)
+            return points
+        end
+
         for i,point in ipairs(route) do
             local p = {x=point.x, y=point.y}
             table.insert(points, p)
         end
         
         return points
+    end
+
+    function iads.util.zoneFromLineDrawing(layerName, drawingName)
+        for i,layer in ipairs(env.mission.drawings.layers) do
+            if layer.name == layerName then
+                for i,obj in ipairs(layer.objects) do
+                    if obj.name == drawingName then
+                        if obj.primitiveType ~= "Line" or not obj.closed then
+                            log("Invalid drawing object for zone; object %s must be a closed line drawing.", drawingName)
+                        else
+                            return obj.points
+                        end
+                    end
+                end
+            end
+        end
     end
 
     function iads.addInterceptorGroup(groupName, aerodromeId)
