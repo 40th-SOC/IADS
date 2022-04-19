@@ -20,7 +20,7 @@ do
             ["1L13 EWR"] = true,			--Early Warning Radar
             ["Hawk sr"] = true,				--Hawk SAM Search Radar
             ["Patriot str"] = true,         --Patriot str
-            ["RLS_19J6"] = true,            --SA-5 SR
+            ["RLS_19J6"] = true,             --SA-5 SR
         },
         ["TACTICAL_SAM_WHITELIST"] = {
             ["SNR_75V"] = true,                --SA2
