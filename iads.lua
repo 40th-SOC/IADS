@@ -435,7 +435,6 @@ do
             local group = Group.getByName(groupName)
 
             if group then
-                log("Found group %s", groupName)
                 -- Only select groups that are not engaged
                 if not activeEngagments[group:getName()] then
                     local units = group:getUnits()
@@ -741,7 +740,6 @@ do
                 if sensors then
                     local trackRadar = sensors[1]
                     local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
-                    log("sensors")
                     local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
     
                     -- Wait until the target is closer. 
@@ -774,96 +772,6 @@ do
         return aglFeet
     end
 
-    -- [2] = table: 000001ED9A57BEE0     {
-    --     [2]["y"] = 181518.01946927,
-    --     [2]["x"] = -18453.772774141,
-    --     },
-    -- [3] = table: 000001ED9A57B6C0     {
-    --     [3]["y"] = 218090.04187621,
-    --     [3]["x"] = 65091.489421514,
-    --     },
-    -- [1] = table: 000001ED9A57B1C0     {
-    --     [1]["y"] = 0,
-    --     [1]["x"] = 0,
-    --     },
-    -- [4] = table: 000001ED9A57BFD0     {
-    --     [4]["y"] = -2348.6619894361,
-    --     [4]["x"] = 121459.37716798,
-    --     },
-    -- [5] = table: 000001ED9A57B210     {
-    --     [5]["y"] = -52677.133191638,
-    --     [5]["x"] = 44289.054657938,
-    --     },
-    -- }
-
-    local p = {
-        ["x"] = -37206.994323492,
-        ["y"] = 735615.40723291,
-    }
-
-    local t = {
-        [2] = {
-            ["y"] = 181518.01946927,
-            ["x"] = -18453.772774141,
-        },
-        [3] = {
-            ["y"] = 218090.04187621,
-            ["x"] = 65091.489421514,
-        },
-        [1] = {
-            ["y"] = 0,
-            ["x"] = 0,
-        },
-        [4] = {
-            ["y"] = -2348.6619894361,
-            ["x"] = 121459.37716798,
-        }, 
-        [5] = {
-            ["y"] = -52677.133191638,
-            ["x"] = 44289.054657938,
-        }
-    }
-    
-
-    function pointInPolygon(point, polygon)
-        -- local inside = false
-        -- local len = #polygon
-        
-        -- log("count: %s", len)
-        -- local j = len
-
-        -- for i=1,len do
-        --     log("i: %s, j: %s", i, j)
-        --     if (polygon[i].y < testPoint.y and polygon[j].y >= testPoint.y or polygon[j].y < testPoint.y and polygon[i].y >= testPoint.y) then
-        --         log("first level")
-        --         if (polygon[i].x + (testPoint.y - polygon[i].y) / (polygon[j].y - polygon[i].y) * (polygon[j].x - polygon[i].x) < testPoint.x) then
-        --             -- Flip the flag?
-        --             log("hitting something")
-        --             inside = not inside
-        --         end
-        --     end
-        --     j = i
-        -- end
-
-        -- return inside
-
-        local inside = false
-        local j = #polygon
-        for i = 1, #polygon do
-            if (polygon[i].y < point.y and polygon[j].y >= point.y or polygon[j].y < point.y and polygon[i].y >= point.y) then
-                log("first level")
-                if (polygon[i].x + ( point.y - polygon[i].y ) / (polygon[j].y - polygon[i].y) * (polygon[j].x - polygon[i].x) < point.x) then
-                    log("hitting something")
-                    inside = not oddNodes;
-                end
-            end
-            j = i;
-        end
-        return oddNodes 
-    end
-
-    -- print(pointInPolygon(p, t))
-
     local function isValidTarget(target)
         if not target then
             return false
@@ -874,22 +782,19 @@ do
         end
 
         local isValid = true
+        local detectionZone = nil
 
         if internalConfig.FIGHTER_ENGAGEMENT_ZONES then
             for zone,points in pairs(internalConfig.FIGHTER_ENGAGEMENT_ZONES) do
-
-                -- debugTable(target:getPoint())
-                
-
-                local p = { x = target:getPoint().x, y = target:getPoint().z }
-                isValid = pointInPolygon(p, points)
-                log("inside: %s", isValid and "true" or "false")
-
+                isValid = unitInsideZone(target, points)
+                detectionZone = zone
                 if isValid then
                     -- No need to check other zones
                     break
                 end
             end
+        elseif internalConfig.AIRSPACE_ZONE_POINTS then
+            isValid = unitInsideZone(target, internalConfig.AIRSPACE_ZONE_POINTS)
         end
 
         if internalConfig.HELO_DETECTION_FLOOR and target:getGroup():getCategory() == Group.Category.HELICOPTER then
@@ -899,7 +804,7 @@ do
             end
         end
 
-        return isValid
+        return isValid, detectionZone
     end
 
     local function targetIsIgnored(target)
@@ -924,22 +829,25 @@ do
             -- check to make sure the target is within the zone before illuminating.
             -- Else, use the IADS borders as the engagment zone.
             local engagmentZone = nil
+            local shouldEngage = true
+            local detectionZone = nil
 
-            if internalConfig.MISSILE_ENGAGMENT_ZONE then
-                engagmentZone = internalConfig.MISSILE_ENGAGMENT_ZONE
-            else
-                engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
+            if internalConfig.MISSILE_ENGAGMENT_ZONES then
+                for zone,points in pairs(internalConfig.MISSILE_ENGAGMENT_ZONES) do
+                    shouldEngage = unitInsideZone(target, points)
+                    detectionZone = zone
+                    if shouldEngage then
+                        -- No need to check other zones
+                        break
+                    end
+                end
+            elseif internalConfig.AIRSPACE_ZONE_POINTS then
+                shouldEngage, detectionZone = unitInsideZone(target, internalConfig.AIRSPACE_ZONE_POINTS)
             end
 
-            if engagmentZone then
-                if unitInsideZone(target, engagmentZone) then
-                    activateNearbySAMs(target)
-                end
-            else
+            if shouldEngage then
                 activateNearbySAMs(target)
             end
-
-
         end
     end
 
@@ -953,9 +861,10 @@ do
         for i,v in ipairs(allTargets) do
             local target = v.target
 
-            -- possiblyEngageWithSAMs(target)
+            possiblyEngageWithSAMs(target)
 
-            if isValidTarget(target) then
+            local valid, detectionZone = isValidTarget(target) 
+            if valid then
 
                 local groupName = target:getGroup():getName()
 
@@ -970,7 +879,11 @@ do
                         return 
                     end
 
-                    log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
+                    local logStr = "New threat: %s, Level: %s, Detected by: %s"
+                    if detectionZone then
+                        logStr = logStr .. ". Zone: %s"
+                    end
+                    log(logStr, groupName, threatLevel, v.detectedBy, detectionZone)
                     
                     if iadsHasCapacity() then
                         local didLaunch = launchInterceptors(target, threatLevel)
@@ -1222,21 +1135,24 @@ do
         return points
     end
 
-    function iads.util.zoneFromLineDrawing(layerName, drawingName)
-        for i,layer in ipairs(env.mission.drawings.layers) do
-            if layer.name == layerName then
-                for i,obj in ipairs(layer.objects) do
-                    if obj.name == drawingName then
-                        if obj.primitiveType ~= "Line" or not obj.closed then
-                            log("Invalid drawing object for zone; object %s must be a closed line drawing.", drawingName)
-                        else
-                            return obj.points
-                        end
-                    end
-                end
-            end
-        end
-    end
+    -- TODO: drawing objects use an origin + offset to define shapes/vertices.
+    -- Stick to using groups for border drawings for now, since they work as expected
+    -- 
+    -- function iads.util.zoneFromLineDrawing(layerName, drawingName)
+    --     for i,layer in ipairs(env.mission.drawings.layers) do
+    --         if layer.name == layerName then
+    --             for i,obj in ipairs(layer.objects) do
+    --                 if obj.name == drawingName then
+    --                     if obj.primitiveType ~= "Line" or not obj.closed then
+    --                         log("Invalid drawing object for zone; object %s must be a closed line drawing.", drawingName)
+    --                     else
+    --                         return obj.points
+    --                     end
+    --                 end
+    --             end
+    --         end
+    --     end
+    -- end
 
     function iads.addInterceptorGroup(groupName, aerodromeId)
         if not groupName then
