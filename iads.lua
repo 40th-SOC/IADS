@@ -68,7 +68,9 @@ do
             ["S-300PS 40B6MD sr"] = true,	--SA-10 Search Radar
             ["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
             ["Patriot str"] = true,         --Patriot str
-        } 
+        },
+        -- A list of non-continguous polygons that will be used as engagement zones.
+        ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
     }
 
     local THREAT_LEVELS = {
@@ -135,6 +137,10 @@ do
         end
 
         env.info(txt)
+    end
+
+    local function debugTable(tbl)
+        log(mist.utils.tableShow(tbl))
     end
 
     local function buildConfig()
@@ -317,6 +323,7 @@ do
         if dist < 30 then
             -- The direction the missile is travelling
             local weaponHeading = mist.getHeading(weapon)
+            log("are we doing this block?")
             -- The heading that the missile would need to be traveling to impact the target
             local interceptHeading = getHeadingPoints(weapon:getPoint(), groupPoint, true)
     
@@ -774,17 +781,20 @@ do
             return false
         end
 
-        -- Could be nil, which would mean engage everything
-        local engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
-
-        if internalConfig.FIGHTER_ENGAGMENT_ZONE then
-            engagmentZone = internalConfig.FIGHTER_ENGAGMENT_ZONE
-        end
-
         local isValid = true
+        local detectionZone = nil
 
-        if engagmentZone then
-            isValid = unitInsideZone(target, engagmentZone)
+        if internalConfig.FIGHTER_ENGAGEMENT_ZONES then
+            for zone,points in pairs(internalConfig.FIGHTER_ENGAGEMENT_ZONES) do
+                isValid = unitInsideZone(target, points)
+                detectionZone = zone
+                if isValid then
+                    -- No need to check other zones
+                    break
+                end
+            end
+        elseif internalConfig.AIRSPACE_ZONE_POINTS then
+            isValid = unitInsideZone(target, internalConfig.AIRSPACE_ZONE_POINTS)
         end
 
         if internalConfig.HELO_DETECTION_FLOOR and target:getGroup():getCategory() == Group.Category.HELICOPTER then
@@ -794,7 +804,7 @@ do
             end
         end
 
-        return isValid
+        return isValid, detectionZone
     end
 
     local function targetIsIgnored(target)
@@ -819,22 +829,25 @@ do
             -- check to make sure the target is within the zone before illuminating.
             -- Else, use the IADS borders as the engagment zone.
             local engagmentZone = nil
+            local shouldEngage = true
+            local detectionZone = nil
 
-            if internalConfig.MISSILE_ENGAGMENT_ZONE then
-                engagmentZone = internalConfig.MISSILE_ENGAGMENT_ZONE
-            else
-                engagmentZone = internalConfig.AIRSPACE_ZONE_POINTS
+            if internalConfig.MISSILE_ENGAGMENT_ZONES then
+                for zone,points in pairs(internalConfig.MISSILE_ENGAGMENT_ZONES) do
+                    shouldEngage = unitInsideZone(target, points)
+                    detectionZone = zone
+                    if shouldEngage then
+                        -- No need to check other zones
+                        break
+                    end
+                end
+            elseif internalConfig.AIRSPACE_ZONE_POINTS then
+                shouldEngage, detectionZone = unitInsideZone(target, internalConfig.AIRSPACE_ZONE_POINTS)
             end
 
-            if engagmentZone then
-                if unitInsideZone(target, engagmentZone) then
-                    activateNearbySAMs(target)
-                end
-            else
+            if shouldEngage then
                 activateNearbySAMs(target)
             end
-
-
         end
     end
 
@@ -850,7 +863,8 @@ do
 
             possiblyEngageWithSAMs(target)
 
-            if isValidTarget(target) then
+            local valid, detectionZone = isValidTarget(target) 
+            if valid then
 
                 local groupName = target:getGroup():getName()
 
@@ -865,7 +879,11 @@ do
                         return 
                     end
 
-                    log("New threat: %s, Level: %s, Detected by: %s", groupName, threatLevel, v.detectedBy)
+                    local logStr = "New threat: %s, Level: %s, Detected by: %s"
+                    if detectionZone then
+                        logStr = logStr .. ". Zone: %s"
+                    end
+                    log(logStr, groupName, threatLevel, v.detectedBy, detectionZone)
                     
                     if iadsHasCapacity() then
                         local didLaunch = launchInterceptors(target, threatLevel)
@@ -1104,6 +1122,11 @@ do
         local points = {}
         local route = mist.getGroupRoute(groupName, true)
 
+        if not route then
+            log("No group found for border route: %s", groupName)
+            return points
+        end
+
         for i,point in ipairs(route) do
             local p = {x=point.x, y=point.y}
             table.insert(points, p)
@@ -1111,6 +1134,25 @@ do
         
         return points
     end
+
+    -- TODO: drawing objects use an origin + offset to define shapes/vertices.
+    -- Stick to using groups for border drawings for now, since they work as expected
+    -- 
+    -- function iads.util.zoneFromLineDrawing(layerName, drawingName)
+    --     for i,layer in ipairs(env.mission.drawings.layers) do
+    --         if layer.name == layerName then
+    --             for i,obj in ipairs(layer.objects) do
+    --                 if obj.name == drawingName then
+    --                     if obj.primitiveType ~= "Line" or not obj.closed then
+    --                         log("Invalid drawing object for zone; object %s must be a closed line drawing.", drawingName)
+    --                     else
+    --                         return obj.points
+    --                     end
+    --                 end
+    --             end
+    --         end
+    --     end
+    -- end
 
     function iads.addInterceptorGroup(groupName, aerodromeId)
         if not groupName then

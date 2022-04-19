@@ -77,12 +77,18 @@ iads.config = {
 	-- If not specified, uses `AIRSPACE_ZONE_POINTS`.
 	-- If AIRSPACE_ZONE_POINTS is not specified, SAMs will fire on any valid targets, 
 	-- regardless of position.
-	["MISSILE_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("MissileEngagmentZone"),
+	["MISSILE_ENGAGMENT_ZONES"] = {
+		["Northern AO"] = iads.util.borderFromGroupRoute("northern_ao"),
+        ["Southern AO"] = iads.util.borderFromGroupRoute("southern_ao"),
+	}
 	-- The zone in which interceptors will be dispatched to engage targets. 
 	-- If not specified, uses `AIRSPACE_ZONE_POINTS`.
 	-- If AIRSPACE_ZONE_POINTS is not specified, fighters will launch on any valid targets, 
 	-- regardless of position.
-	["FIGHTER_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("FighterEngagmentZone"),
+    ["FIGHTER_ENGAGEMENT_ZONES"] = {
+		["Northern AO"] = iads.util.borderFromGroupRoute("northern_ao"),
+        ["Southern AO"] = iads.util.borderFromGroupRoute("southern_ao"),
+	},
 	-- Use any AWACS units found in the mission as a search radar
 	["USE_AWACS_RADAR"] = true,
 	-- Helicopters will NOT have interceptors dispatched on them if they are detected under this height in feet.
@@ -116,6 +122,10 @@ iads.config = {
 		["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
 		["Patriot str"] = true,         --Patriot str
 	},
+	-- A list of non-continguous polygons that will be used as engagement zones.
+	["FIGHTER_ENGAGEMENT_ZONES"] = {
+		["Northern AO"] = iads.util.zoneFromLineDrawing("Author", "NorthernAO"),
+	}, 
 }
 
 -- Call this AFTER setting configuration options
