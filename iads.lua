@@ -71,6 +71,7 @@ do
         },
         -- A list of non-continguous polygons that will be used as engagement zones.
         ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
+        ["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
     }
 
     local THREAT_LEVELS = {
