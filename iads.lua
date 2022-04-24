@@ -774,7 +774,7 @@ do
 
     local function isAirborneTarget(target)
         local group = target:getGroup()
-        if group:getCategory() == Group.Category.AIRPLANE and target:inAir() then
+        if target:inAir() then
             return true
         end
 
