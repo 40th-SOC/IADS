@@ -41,9 +41,8 @@ do
         ["RMAX_MODIFIER"] = 1,
         ["IGNORE_SAM_GROUPS"] = nil,
         ["AIRSPACE_ZONE_POINTS"] = nil,
-        ["SAMS_IGNORE_BORDERS"] = false,
-        ["MISSILE_ENGAGMENT_ZONE"] = nil,
-        ["FIGHTER_ENGAGMENT_ZONE"] = nil,
+        ["FIGHTER_ENGAGEMENT_ZONES"] = nil,
+        ["MISSILE_ENGAGEMENT_ZONES"] = nil,
         ["USE_AWACS_RADAR"] = true,
         ["HELO_DETECTION_FLOOR"] = nil,
         ["REFUEL_CAPABLE_AIRFRAMES"] = {
@@ -773,12 +772,24 @@ do
         return aglFeet
     end
 
+    local function isAirborneTarget(target)
+        if target:inAir() then
+            return true
+        end
+
+        return false
+    end
+
     local function isValidTarget(target)
         if not target then
             return false
         end
 
         if target and target:getCategory() ~= Object.Category.UNIT then
+            return false
+        end
+
+        if not isAirborneTarget(target) then
             return false
         end
 
@@ -1073,7 +1084,7 @@ do
 
         internalConfig = buildConfig()
 
-        -- log(mist.utils.tableShow(internalConfig.MISSILE_ENGAGMENT_ZONE))
+        -- debugTable(internalConfig)
 
         buildSAMDatabase()
         -- On the initial frame, the AWACS units have not registered themselves yet.
