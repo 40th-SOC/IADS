@@ -86,12 +86,6 @@ iads.config = {
 	["IGNORE_GROUPS"]  {
 		"Some Group Name",
     },
-    -- Tactical SAM engagment modifier.
-    -- If this modifier is set to 1, the SAM will engage at max range.
-    -- If it is set to 0.8, the SAM will engage at 80% of max range.
-    -- Engageming at less than max range will make SAMs deadlier.
-    ["RMAX_MODIFIER"] = 0.8,
-
     -- If definded the IADS will only engage targets within the polygon
     -- defined by a table of vec2 points
     ["AIRSPACE_ZONE_POINTS"] = iads.util.borderFromGroupRoute("BorderGroup"),
