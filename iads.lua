@@ -772,12 +772,25 @@ do
         return aglFeet
     end
 
+    local function isAirborneTarget(target)
+        local group = target:getGroup()
+        if group:getCategory() == Group.Category.AIRPLANE and target:inAir() then
+            return true
+        end
+
+        return false
+    end
+
     local function isValidTarget(target)
         if not target then
             return false
         end
 
         if target and target:getCategory() ~= Object.Category.UNIT then
+            return false
+        end
+
+        if not isAirborneTarget(target) then
             return false
         end
 
