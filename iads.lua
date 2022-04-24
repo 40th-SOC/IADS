@@ -773,7 +773,6 @@ do
     end
 
     local function isAirborneTarget(target)
-        local group = target:getGroup()
         if target:inAir() then
             return true
         end
