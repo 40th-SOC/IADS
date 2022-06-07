@@ -115,8 +115,11 @@ iads.config = {
 	["USE_AWACS_RADAR"] = true,
 	-- Helicopters will NOT have interceptors dispatched on them if they are detected under this height in feet.
 	-- SAMs may still attack.
-	-- Set this to `nil` to dispatch fighters on helos at any altitude.
+	-- Set this to ignore helicopters below an AGL altitude.
+	-- Default is nil.
 	["HELO_DETECTION_FLOOR"] = 500,
+	-- Set this to ignore fixed-wing aircraft below an AGL altitude.
+	["FIXED_WING_DETECTION_FLOOR"] = 500,
 	-- Airframes are able to refuel from a tanker on bingo.
 	["REFUEL_CAPABLE_AIRFRAMES"] = {
 		["MiG-31"] = true,
