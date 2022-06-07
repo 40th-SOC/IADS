@@ -71,6 +71,7 @@ do
         -- A list of non-continguous polygons that will be used as engagement zones.
         ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
         ["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
+        ["FIXED_WING_DETECTION_FLOOR"] = nil,
     }
 
     local THREAT_LEVELS = {
@@ -809,11 +810,20 @@ do
             isValid = unitInsideZone(target, internalConfig.AIRSPACE_ZONE_POINTS)
         end
 
-        if internalConfig.HELO_DETECTION_FLOOR and target:getGroup():getCategory() == Group.Category.HELICOPTER then
+        local cat = target:getGroup():getCategory()
+
+        if internalConfig.HELO_DETECTION_FLOOR and cat == Group.Category.HELICOPTER then
             local agl = getAGL(target)
             if  agl < internalConfig.HELO_DETECTION_FLOOR then
                 isValid = false
             end
+        end
+
+        if internalConfig.FIXED_WING_DETECTION_FLOOR and cat == Group.Category.AIRPLANE then
+            local agl = getAGL(target)
+            if  agl < internalConfig.FIXED_WING_DETECTION_FLOOR then
+                isValid = false
+            end  
         end
 
         return isValid, detectionZone
