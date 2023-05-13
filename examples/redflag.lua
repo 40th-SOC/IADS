@@ -3,12 +3,12 @@ iads.config = {
     ["REINFORCEMENT_INTERVAL"] = 900,
     ["ENABLE_SAM_DEFENSE"] = true,
     ["AIRSPACE_ZONE_POINTS"] = iads.util.borderFromGroupRoute("iads_border"),
-	["MISSILE_ENGAGMENT_ZONES"] = {
-		["MEZ"] = iads.util.borderFromGroupRoute("iads_border"),
-	},
+    ["MISSILE_ENGAGMENT_ZONES"] = {
+        ["MEZ"] = iads.util.borderFromGroupRoute("iads_border"),
+    },
     ["FIGHTER_ENGAGEMENT_ZONES"] = {
-		["FEZ"] = iads.util.borderFromGroupRoute("fez"),
-	},
+        ["FEZ"] = iads.util.borderFromGroupRoute("fez"),
+    },
     ["FIGHTER_ENGAGMENT_ZONE"] = iads.util.borderFromGroupRoute("fez"),
     ["HELO_DETECTION_FLOOR"] = 1000,
     ["RESPAWN_INTERCEPTORS"] = false,
