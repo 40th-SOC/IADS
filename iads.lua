@@ -68,6 +68,8 @@ do
             ["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
             ["Patriot str"] = true,         --Patriot str
         },
+        -- A lit of groups that are suppression exempt
+        ["SAM_SUPPRESSION_EXEMPT_GROUPS"] = nil,
         -- A list of non-continguous polygons that will be used as engagement zones.
         ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
         ["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
@@ -355,8 +357,15 @@ do
                     -- pre-briefed HARMs.
                     if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS[typeName] then
                         log("Radar %s in group %s is suppression exempt", typeName, unit:getGroup():getName())
-                        ackMissile(weapon:getName())
                         shouldDefend = false
+                    end
+
+                    if internalConfig.SAM_SUPPRESSION_EXEMPT_GROUPS then
+                        local groupName = unit:getGroup():getName()
+                        if internalConfig.SAM_SUPPRESSION_EXEMPT_GROUPS[groupName] then
+                            log("Group %s is suppression exempt", groupName)
+                            shouldDefend = false
+                        end
                     end
                 end
 
@@ -371,6 +380,7 @@ do
                     collection[i].state = SAM_STATES.DEFENDING
                     local minTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[1]
                     local maxTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[2]
+                    ackMissile(weapon:getName())
                     
                     local suppressionTime = math.random(minTimeout, maxTimeout)
                     log("SAM %s disabled for %s seconds", groupName, suppressionTime)
