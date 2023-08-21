@@ -356,14 +356,12 @@ do
                     -- anti-radiation missiles. Patriots and SA-10s, for example, have no problem knocking down
                     -- pre-briefed HARMs.
                     if internalConfig.SAM_SUPPRESSION_EXEMPT_RADARS[typeName] then
-                        log("Radar %s in group %s is suppression exempt", typeName, unit:getGroup():getName())
                         shouldDefend = false
                     end
 
                     if internalConfig.SAM_SUPPRESSION_EXEMPT_GROUPS then
                         local groupName = unit:getGroup():getName()
                         if internalConfig.SAM_SUPPRESSION_EXEMPT_GROUPS[groupName] then
-                            log("Group %s is suppression exempt", groupName)
                             shouldDefend = false
                         end
                     end
@@ -752,15 +750,42 @@ do
 
             if unit and data.state == SAM_STATES.INACTIVE then
                 local sensors = unit:getSensors() and unit:getSensors()[1]
+                -- For some reason, hawk sites don't have sensors (wtf ED).
+                -- Add an override here for this case.
+                -- Hawk should be about 20 nm.
+                if not sensors and unit:getTypeName() == "Hawk tr" then
+                    sensors = {
+                        [1] = {
+                            detectionDistanceAir = {
+                                upperHemisphere = {
+                                    headOn = 37040.0,
+                                    tailOn = 37040.0,
+                                },
+                                lowerHemisphere = {
+                                    headOn = 37040.0,
+                                    tailOn = 37040.0,
+                                },
+                            },
+                        }
+                    }
+                end
 
                 if sensors then
                     local trackRadar = sensors[1]
                     local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
+
+                    -- log("Rmax for %s is %s", unit:getTypeName(), rmax)
                     local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
+
+                    if unit:getTypeName() == "Hawk sr" then
+                        log("Hawk sr distance is %s, rmax: %s", dist, rmax)
+                    end
     
                     -- Wait until the target is closer. 
                     -- This ensures that SAMs are almost ready to fire when they turn on.
                     if dist < (rmax * internalConfig.RMAX_MODIFIER) then
+                        log("Activating %s, distance is %s", unit:getTypeName(), dist)
+
                         local group = unit:getGroup()
                         setRadarState({ group=group, enabled=true })
                         tacticalSAMs[i].state = SAM_STATES.ACTIVE
