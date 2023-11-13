@@ -68,13 +68,14 @@ do
             ["S-300PS 40B6M tr"] = true,    --SA-10 Track Radar
             ["Patriot str"] = true,         --Patriot str
         },
-        -- A lit of groups that are suppression exempt
+        -- A list of groups that are suppression exempt
         ["SAM_SUPPRESSION_EXEMPT_GROUPS"] = nil,
         -- A list of non-continguous polygons that will be used as engagement zones.
         ["FIGHTER_ENGAGEMENT_ZONES"] = nil, 
         ["CAP_FLIGHT_FUEL_CHECK_INTERVAL"] = 300,
         ["FIXED_WING_DETECTION_FLOOR"] = nil,
         ["ENABLE_DEBUG_LOGGING"] = false,
+        ["DETECTED_TARGET_FLAG"] = nil,
     }
 
     local THREAT_LEVELS = {
@@ -946,6 +947,11 @@ do
                         logStr = logStr .. ". Zone: %s"
                     end
                     log(logStr, groupName, threatLevel, v.detectedBy, detectionZone)
+
+                    if internalConfig.DETECTED_TARGET_FLAG then
+                        log("Setting flag '%s'", internalConfig.DETECTED_TARGET_FLAG)
+                        trigger.action.setUserFlag(internalConfig.DETECTED_TARGET_FLAG, 1)
+                    end
                     
                     if iadsHasCapacity() then
                         local didLaunch = launchInterceptors(target, threatLevel)

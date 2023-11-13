@@ -7,7 +7,6 @@ iads.config = {
     ["ENABLE_THREAT_MATCH"] = false,
     ["ENABLE_DEBUG_LOGGING"] = false,
     ["SAM_DEFENSE_TIMEOUT_RANGE"] = {200, 700},
-    ["ENABLE_DEBUG_LOGGING"] = true,
 }
 
 iads.init()
