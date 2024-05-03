@@ -302,6 +302,10 @@ do
         end
     end
 
+    local function getWeaponId(weapon)
+        return weapon["id_"]
+    end
+
     local function isSEADMissile(weapon)
         -- local missile = weapon:getTypeName()
         local description = weapon:getDesc()
@@ -317,15 +321,11 @@ do
     end
 
     local function defendSAMGroup(groupPoint, unit, weapon)
-        local weaponId = weapon:getName()
-
-        if isAckedMissile(weaponName) then
-            return false
-        end
+        local weaponId = getWeaponId(weapon)
 
         local dist = mist.utils.metersToNM(mist.utils.get3DDist(weapon:getPoint(), groupPoint))
 
-        if dist < 30 then
+        if dist < 80 then
             -- The direction the missile is travelling
             local weaponHeading = mist.getHeading(weapon)
             -- The heading that the missile would need to be traveling to impact the target
@@ -333,9 +333,9 @@ do
     
             local deltaHeading = math.abs(weaponHeading - interceptHeading) 
             -- `deltaHeading` is in radians. .01 means the missile is heading right for the target
-            if deltaHeading < 0.1 then
+            if deltaHeading < 0.01 then
                 local group = unit:getGroup()
-                log("ARM %s inbound at %s, defending", weaponId, group:getName())
+                log("ARM %s inbound at %s, delta: %s, defending", weaponId, group:getName(), string.format("%.3f", deltaHeading))
                 setRadarState({ group=group, enabled=false })
                 ackMissile(weaponId)
                 return true
@@ -379,7 +379,7 @@ do
                     collection[i].state = SAM_STATES.DEFENDING
                     local minTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[1]
                     local maxTimeout = internalConfig.SAM_DEFENSE_TIMEOUT_RANGE[2]
-                    ackMissile(weapon:getName())
+                    ackMissile(getWeaponId(weapon))
                     
                     local suppressionTime = math.random(minTimeout, maxTimeout)
                     log("SAM %s disabled for %s seconds", groupName, suppressionTime)
@@ -394,17 +394,21 @@ do
         end
     end
 
+ 
+
     local function defendSAMSites(detectedARMs)
         for i,threat in ipairs(detectedARMs) do
             local weapon = threat.weapon
+            local weaponId = getWeaponId(weapon)
             
-            if not isAckedMissile(weapon:getName()) then
-                -- log("ARM %s detected by %s", weapon:getName(), threat.detectedBy)
+            if not isAckedMissile(weaponId) then
+                -- log("ARM %s detected by %s", weaponId, threat.detectedBy)
                 -- TODO: combine this into a single table
                 -- Note: time-complexity here is (number ARMs * number tactical SAMS) + (number ARMS * search radars).
                 -- Once the ARMs start homing in and sites start to defend, time-complexity goes down.
                 defendEmitters(tacticalSAMs, weapon)
-                defendEmitters(searchRadars, weapon)
+                -- Skip search radars. We need them to detect more ARMs.
+                -- defendEmitters(searchRadars, weapon)
             end
         end
     end
@@ -785,7 +789,7 @@ do
                     -- Wait until the target is closer. 
                     -- This ensures that SAMs are almost ready to fire when they turn on.
                     if dist < (rmax * internalConfig.RMAX_MODIFIER) then
-                        log("Activating %s, distance is %s", unit:getTypeName(), dist)
+                        log("Activating %s, distance is %sNM", unit:getTypeName(), math.floor(mist.utils.metersToNM(dist)))
 
                         local group = unit:getGroup()
                         setRadarState({ group=group, enabled=true })
