@@ -779,7 +779,6 @@ do
                     local trackRadar = sensors[1]
                     local rmax = trackRadar.detectionDistanceAir.upperHemisphere.headOn
 
-                    -- log("Rmax for %s is %s", unit:getTypeName(), rmax)
                     local dist = mist.utils.get2DDist(target:getPoint(), unit:getPoint())
 
                     if unit:getTypeName() == "Hawk sr" then
@@ -789,6 +788,7 @@ do
                     -- Wait until the target is closer. 
                     -- This ensures that SAMs are almost ready to fire when they turn on.
                     if dist < (rmax * internalConfig.RMAX_MODIFIER) then
+                        log("Rmax for %s is %sNM", unit:getTypeName(), math.floor(mist.utils.metersToNM(rmax)))
                         log("Activating %s, distance is %sNM", unit:getTypeName(), math.floor(mist.utils.metersToNM(dist)))
 
                         local group = unit:getGroup()
